@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Accueil } from './Accueil';
-import { Auth } from './Auth';
+import { Auth, type ResultatConnexion } from './Auth';
 import { DevenirPrestataire } from './DevenirPrestataire';
 import { Decouverte } from './Decouverte';
 import { MesReservations } from './MesReservations';
@@ -53,7 +53,7 @@ const ongletsPro: OngletProNavigation[] = [
   { onglet: 'tableau', libelle: 'Tableau', icone: 'briefcase' },
   { onglet: 'demandes', libelle: 'Demandes', icone: 'list' },
   { onglet: 'prestations', libelle: 'Prestations', icone: 'plus' },
-  { onglet: 'creneaux', libelle: 'CrÃ©neaux', icone: 'clock' },
+  { onglet: 'creneaux', libelle: 'Creneaux', icone: 'clock' },
   { onglet: 'profil', libelle: 'Profil', icone: 'user' },
 ];
 
@@ -252,6 +252,29 @@ function App() {
     setPrestataireSelectionne(null);
   }
 
+  async function gererConnexion(resultat: ResultatConnexion): Promise<void> {
+    await recharger();
+    setPrestataireSelectionne(null);
+
+    if (resultat.intention === 'prestataire') {
+      if (resultat.estPrestataire) {
+        setMode('pro');
+        setOngletPro('profil');
+        setVue('profil');
+        return;
+      }
+
+      setMode('client');
+      setVue('devenir-prestataire');
+      return;
+    }
+
+    setMode('client');
+    setVue('accueil');
+    setOngletPro('tableau');
+    setRechercheDecouverte({ nomCategorie: '', ville: '' });
+  }
+
   function afficherProfil() {
     const nomAffiche = utilisateur?.nom?.trim() || 'Utilisateur KWIIK';
     const initiales = initialesDepuisNom(utilisateur?.nom || utilisateur?.telephone, 'KW');
@@ -290,7 +313,7 @@ function App() {
           </div>
           {!estPrestataire && (
             <p className="m-0 mt-2 text-xs leading-5 text-muted">
-              CrÃ©ez votre vitrine pour activer l'espace prestataire.
+              Creez votre vitrine pour activer l'espace prestataire.
             </p>
           )}
         </div>
@@ -320,7 +343,7 @@ function App() {
               </button>
               <button className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white" onClick={() => naviguerPro('creneaux')} type="button">
                 <Icone className="h-5 w-5 text-muted" nom="clock" />
-                <span className="flex-1">Mes crÃ©neaux</span>
+                <span className="flex-1">Mes creneaux</span>
                 <span className="text-muted">&gt;</span>
               </button>
             </>
@@ -344,7 +367,7 @@ function App() {
             type="button"
           >
             <Icone className="h-5 w-5" nom="logout" />
-            <span>Se dÃ©connecter</span>
+            <span>Se deconnecter</span>
           </button>
         </div>
       </section>
@@ -389,7 +412,7 @@ function App() {
     return (
       <div className="min-h-screen bg-surface-0 px-0 py-0 sm:px-3 sm:py-6">
         <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col overflow-hidden rounded-none border-line bg-surface-2 shadow-[0_12px_40px_rgba(0,0,0,0.10)] sm:min-h-[720px] sm:rounded-[30px] sm:border">
-          <Auth onConnecte={() => void recharger()} />
+          <Auth onConnecte={(resultat) => void gererConnexion(resultat)} />
         </div>
       </div>
     );

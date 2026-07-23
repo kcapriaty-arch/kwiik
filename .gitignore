@@ -1,0 +1,9 @@
+﻿node_modules/
+dist/
+.env
+*.log
+backend/uploads/
+backend/generated/
+kwiik-sauvegarde-16juillet/
+backend/uploads-prives/
+/*.png

@@ -1,0 +1,215 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  client
+  prestataire
+  admin
+}
+
+enum Langue {
+  fr
+  en
+}
+
+enum StatutCreneau {
+  libre
+  reserve
+  indisponible
+}
+
+enum StatutReservation {
+  en_attente
+  confirmee
+  en_cours
+  terminee
+  validee
+  payee_cloturee
+  annulee
+  litige
+}
+
+enum ModePaiement {
+  en_ligne
+  a_la_livraison
+}
+
+enum StatutPaiement {
+  en_attente
+  reussi
+  echoue
+  rembourse
+}
+
+enum Operateur {
+  orange_money
+  mtn_momo
+}
+
+model Utilisateur {
+  id        String   @id @default(uuid())
+  telephone String   @unique
+  nom       String
+  role      Role     @default(client)
+  langue    Langue   @default(fr)
+  creeLe    DateTime @default(now())
+
+  prestataire  Prestataire?
+  reservations Reservation[]
+}
+
+model Domaine {
+  id         String      @id @default(uuid())
+  nom        String      @unique
+  ordre      Int         @default(0)
+  categories Categorie[]
+}
+
+model Categorie {
+  id           String        @id @default(uuid())
+  nom          String        @unique
+  domaineId    String
+  domaine      Domaine       @relation(fields: [domaineId], references: [id], onDelete: Cascade)
+  prestataires Prestataire[]
+}
+
+model Prestataire {
+  id            String      @id @default(uuid())
+  utilisateurId String      @unique
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+
+  categories          Categorie[]
+  ville               String      @default("Douala")
+  quartier            String?
+  adresse             String?
+  description         String?
+  photoLieuUrl        String?
+  photosBoutique      String[]    @default([])
+  rdvGratuitsRestants Int         @default(10)
+  lienPartage         String?     @unique
+  verifie             Boolean     @default(false)
+
+  abonnementId String?
+  abonnement   Abonnement? @relation(fields: [abonnementId], references: [id])
+
+  prestations Prestation[]
+  creneaux    Creneau[]
+  profilPrive ProfilPrestatairePrive?
+
+  creeLe DateTime @default(now())
+}
+
+model ProfilPrestatairePrive {
+  id            String      @id @default(uuid())
+  prestataireId String      @unique
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+
+  telephonePro         String?
+  email                String?
+  photoProfilPriveeUrl String?
+  cniRectoUrl          String?
+  cniVersoUrl          String?
+
+  creeLe    DateTime @default(now())
+  modifieLe DateTime @updatedAt
+}
+
+model Prestation {
+  id            String      @id @default(uuid())
+  prestataireId String
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+
+  titre       String
+  description String?
+  photoUrl    String?
+  prix        Int
+  dureeMin    Int
+
+  reservations Reservation[]
+}
+
+model Creneau {
+  id            String      @id @default(uuid())
+  prestataireId String
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+
+  debut  DateTime
+  fin    DateTime
+  statut StatutCreneau @default(libre)
+
+  reservations Reservation[]
+}
+
+model Reservation {
+  id String @id @default(uuid())
+
+  clientId String
+  client   Utilisateur @relation(fields: [clientId], references: [id])
+
+  prestationId String
+  prestation   Prestation @relation(fields: [prestationId], references: [id])
+
+  creneauId String
+  creneau   Creneau @relation(fields: [creneauId], references: [id])
+
+  statut       StatutReservation @default(en_attente)
+  modePaiement ModePaiement
+
+  paiement Paiement?
+  avis     Avis?
+
+  creeLe DateTime @default(now())
+}
+
+model Paiement {
+  id            String      @id @default(uuid())
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  montant          Int
+  operateur        Operateur?
+  statut           StatutPaiement @default(en_attente)
+  referenceExterne String?
+
+  creeLe DateTime @default(now())
+}
+
+model Abonnement {
+  id               String  @id @default(uuid())
+  nom              String  @unique
+  prixMois         Int
+  prioriteRang     Int     @default(0)
+  publiciteExterne Boolean @default(false)
+
+  prestataires Prestataire[]
+}
+
+model Avis {
+  id            String      @id @default(uuid())
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  note        Int
+  commentaire String?
+
+  creeLe DateTime @default(now())
+}
+
+model CodeVerification {
+  id         String   @id @default(uuid())
+  telephone  String
+  codeHache  String
+  expireLe   DateTime
+  tentatives Int      @default(0)
+  utilise    Boolean  @default(false)
+  creeLe     DateTime @default(now())
+
+  @@index([telephone])
+}

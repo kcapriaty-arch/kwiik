@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-kwiik: #185FA5;
+  --color-kwiik-dark: #0C447C;
+  --color-kwiik-light: #E6F1FB;
+  --color-coral: #F25F5C;
+  --color-coral-dark: #D94745;
+  --color-coral-soft: #FFE7E2;
+  --color-teal: #3F9D87;
+  --color-teal-dark: #24715F;
+  --color-teal-soft: #E5F5F0;
+  --color-cream: #FFF8EF;
+  --color-soft-map: #EDF6FA;
+  --color-surface-0: #F4EFE8;
+  --color-surface-1: #FBFAF7;
+  --color-surface-2: #FFFFFF;
+  --color-ink: #1A1A18;
+  --color-muted: #5F5E5A;
+  --color-line: #E7E0D6;
+  --color-success-soft: #E1F5EE;
+  --color-success-strong: #0F6E56;
+  --color-warning-soft: #FAEEDA;
+  --color-warning-strong: #854F0B;
+  --color-danger-soft: #FCEBEB;
+  --color-danger-strong: #A32D2D;
+  --color-amber-star: #BA7517;
+}
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1A1A18;
+  background: #F4EFE8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100svh;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top left, rgba(242, 95, 92, 0.10), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(63, 157, 135, 0.10), transparent 26rem),
+    #F4EFE8;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+img {
+  max-width: 100%;
+}

@@ -1,10 +1,11 @@
-import axios from 'axios';
+﻿import axios from 'axios';
+
+const apiHost = window.location.hostname || 'localhost';
 
 export const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: `http://${apiHost}:3000`,
 });
 
-// Ajoute automatiquement le jeton JWT à chaque requête, s'il existe
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('kwiik_token');
   if (token) {

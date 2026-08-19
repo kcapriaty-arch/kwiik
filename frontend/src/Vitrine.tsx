@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, urlImage as imageUrl } from './api';
+import { SheetReservation } from './SheetReservation';
 import { Badge, SquelettesCartes } from './ui';
 
 interface VitrineProps {
@@ -105,11 +106,7 @@ const onglets: Array<{ id: OngletVitrine; libelle: string }> = [
 ];
 
 const formatFcfa = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
-const formatDateLong = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const formatDateAvis = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const formatJourCourt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
-const formatJourNombre = new Intl.DateTimeFormat('fr-FR', { day: '2-digit' });
-const formatHeure = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const formatNote = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 function Icon({ name, className = '' }: { name: IconName; className?: string }) {
@@ -161,18 +158,6 @@ function Icon({ name, className = '' }: { name: IconName; className?: string }) 
 
 function prix(prixFcfa: number): string {
   return `${formatFcfa.format(prixFcfa)} FCFA`;
-}
-
-function dateLong(dateIso: string): string {
-  return formatDateLong.format(new Date(dateIso));
-}
-
-function heure(dateIso: string): string {
-  return formatHeure.format(new Date(dateIso));
-}
-
-function cleJour(dateIso: string): string {
-  return new Date(dateIso).toISOString().slice(0, 10);
 }
 
 function note(noteValeur: number): string {
@@ -227,17 +212,10 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
   const [avis, setAvis] = useState<AvisPrestataire[]>([]);
   const [avisDisponibles, setAvisDisponibles] = useState<boolean>(false);
   const [prestationSelectionnee, setPrestationSelectionnee] = useState<string>('');
-  const [creneauSelectionne, setCreneauSelectionne] = useState<string>('');
-  const [jourActif, setJourActif] = useState<string>('');
+  const [sheetOuvert, setSheetOuvert] = useState<boolean>(false);
   const [ongletActif, setOngletActif] = useState<OngletVitrine>('rdv');
   const [chargement, setChargement] = useState<boolean>(true);
-  const [reservationEnCours, setReservationEnCours] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>('');
   const [erreur, setErreur] = useState<string>('');
-  const [modePaiement, setModePaiement] = useState<'a_la_livraison' | 'en_ligne'>('a_la_livraison');
-  const [operateur, setOperateur] = useState<'orange_money' | 'mtn_momo'>('orange_money');
-  const [paiement, setPaiement] = useState<{ id: string; statut: string } | null>(null);
-  const [simulationEnCours, setSimulationEnCours] = useState<boolean>(false);
   const [indexImage, setIndexImage] = useState<number>(0);
   const [prestationDetaillee, setPrestationDetaillee] = useState<string>('');
   const [estFavori, setEstFavori] = useState<boolean>(false);
@@ -247,10 +225,8 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
     async function charger(): Promise<void> {
       setChargement(true);
       setErreur('');
-      setMessage('');
       setPrestationSelectionnee('');
-      setCreneauSelectionne('');
-      setJourActif('');
+      setSheetOuvert(false);
       setOngletActif('rdv');
       setIndexImage(0);
       setPrestationDetaillee('');
@@ -272,7 +248,6 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
 
         const vitrine = detail.value.data;
         setPrestataire(vitrine);
-        setJourActif(vitrine.creneaux[0] ? cleJour(vitrine.creneaux[0].debut) : '');
 
         if (moyenne.status === 'fulfilled' && listeAvis.status === 'fulfilled') {
           setMoyenneAvis(moyenne.value.data);
@@ -291,30 +266,6 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
 
     charger();
   }, [prestataireId]);
-
-  const joursDisponibles = useMemo<Creneau[]>(() => {
-    if (!prestataire) {
-      return [];
-    }
-
-    const vus = new Set<string>();
-    return prestataire.creneaux.filter((creneau) => {
-      const cle = cleJour(creneau.debut);
-      if (vus.has(cle)) {
-        return false;
-      }
-      vus.add(cle);
-      return true;
-    });
-  }, [prestataire]);
-
-  const creneauxAffiches = useMemo<Creneau[]>(() => {
-    if (!prestataire) {
-      return [];
-    }
-
-    return jourActif ? prestataire.creneaux.filter((creneau) => cleJour(creneau.debut) === jourActif) : prestataire.creneaux;
-  }, [jourActif, prestataire]);
 
   const horaires = useMemo<HoraireJour[]>(() => {
     const plages = new Map<number, { debut: number; fin: number }>();
@@ -378,24 +329,6 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
     }
   }
 
-  async function simulerPaiement(): Promise<void> {
-    if (!paiement || simulationEnCours) {
-      return;
-    }
-
-    setSimulationEnCours(true);
-    try {
-      const { data } = await api.post<{ statut: string }>(`/paiements/${paiement.id}/simuler`, {
-        resultat: 'reussi',
-      });
-      setPaiement((p) => (p ? { ...p, statut: data.statut } : p));
-    } catch (error: unknown) {
-      setErreur(lireErreur(error));
-    } finally {
-      setSimulationEnCours(false);
-    }
-  }
-
   async function rafraichirCreneaux(): Promise<void> {
     try {
       const { data } = await api.get<PrestataireDetail>(`/prestataires/${prestataireId}`);
@@ -405,42 +338,28 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
     }
   }
 
-  async function reserver(): Promise<void> {
-    if (!prestationSelectionnee || !creneauSelectionne) {
-      return;
-    }
-
-    setReservationEnCours(true);
-    setErreur('');
-    setMessage('');
-    setPaiement(null);
-
+  async function reserverDepuisSheet(payload: {
+    creneauId: string;
+    modePaiement: 'a_la_livraison' | 'en_ligne';
+    operateur?: 'orange_money' | 'mtn_momo';
+    note?: string;
+  }): Promise<{ reservationId: string }> {
     try {
       const { data } = await api.post<{ id: string }>('/reservations', {
         prestationId: prestationSelectionnee,
-        creneauId: creneauSelectionne,
-        modePaiement,
-        ...(modePaiement === 'en_ligne' && { operateur }),
+        creneauId: payload.creneauId,
+        modePaiement: payload.modePaiement,
+        ...(payload.operateur && { operateur: payload.operateur }),
+        ...(payload.note && { note: payload.note }),
       });
 
-      if (modePaiement === 'en_ligne') {
-        const { data: paiementCree } = await api.get<{ id: string; statut: string }>(
-          `/paiements/reservation/${data.id}`,
-        );
-        setPaiement({ id: paiementCree.id, statut: paiementCree.statut });
-        setMessage('Réservation envoyée. Finalisez le paiement ci-dessous.');
-      } else {
-        setMessage('Reservation envoyee avec succes.');
-      }
-    } catch (error: unknown) {
-      setErreur(lireErreur(error));
-      // Le creneau choisi peut avoir ete pris entre-temps : on l'oublie et on
-      // recharge la liste a jour plutot que de laisser l'utilisateur reessayer
-      // sur un choix devenu invalide.
-      setCreneauSelectionne('');
       await rafraichirCreneaux();
-    } finally {
-      setReservationEnCours(false);
+      return { reservationId: data.id };
+    } catch (error: unknown) {
+      // Le creneau choisi peut avoir ete pris entre-temps : on recharge la
+      // liste a jour pour que l'utilisateur ne reessaie pas sur un choix devenu invalide.
+      await rafraichirCreneaux();
+      throw error;
     }
   }
   if (chargement) {
@@ -481,8 +400,6 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
   const noteMoyenne = moyenneAvis?.moyenne ?? null;
   const nombreAvis = moyenneAvis?.nombreAvis ?? 0;
   const prestationActive = prestataire.prestations.find((prestation) => prestation.id === prestationSelectionnee);
-  const creneauActif = prestataire.creneaux.find((creneau) => creneau.id === creneauSelectionne);
-  const reservationPossible = Boolean(prestationSelectionnee && creneauSelectionne && !reservationEnCours);
 
   return (
     <section className="min-h-full bg-surface-0 text-left text-ink">
@@ -653,70 +570,17 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
                         className={`h-12 rounded-xl px-6 text-base font-bold text-white transition active:scale-[0.98] ${selectionnee ? 'bg-kwiik' : 'bg-ink'}`}
                         onClick={() => {
                           setPrestationSelectionnee(prestation.id);
-                          setCreneauSelectionne('');
-                          setMessage('');
                           setErreur('');
+                          setSheetOuvert(true);
                         }}
                         type="button"
                       >
-                        {selectionnee ? 'Choisie' : 'Choisir'}
+                        Réserver
                       </button>
                     </div>
                   </article>
                 );
               })
-            )}
-          </section>
-
-          <section className="px-5 py-7">
-            <h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Creneaux libres</h2>
-            {!prestationSelectionnee && <p className="m-0 mt-2 text-sm leading-6 text-muted">Selectionnez d'abord une prestation pour choisir votre horaire.</p>}
-            {prestationSelectionnee && prestataire.creneaux.length === 0 && <p className="m-0 mt-4 rounded-lg bg-white p-4 text-sm text-muted shadow-sm">Aucun creneau libre pour le moment.</p>}
-            {prestationSelectionnee && prestataire.creneaux.length > 0 && (
-              <div className="mt-4">
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {joursDisponibles.map((creneau) => {
-                    const cle = cleJour(creneau.debut);
-                    const actif = jourActif === cle;
-                    return (
-                      <button
-                        className={`min-w-[78px] rounded-xl border px-3 py-3 text-center transition active:scale-[0.98] ${actif ? 'border-kwiik bg-white text-kwiik' : 'border-line bg-white text-muted'}`}
-                        key={cle}
-                        onClick={() => {
-                          setJourActif(cle);
-                          setCreneauSelectionne('');
-                          setMessage('');
-                          setErreur('');
-                        }}
-                        type="button"
-                      >
-                        <span className="block text-xs font-bold uppercase">{formatJourCourt.format(new Date(creneau.debut)).replace('.', '')}</span>
-                        <span className="block text-xl font-black leading-tight">{formatJourNombre.format(new Date(creneau.debut))}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  {creneauxAffiches.map((creneau) => {
-                    const selectionne = creneauSelectionne === creneau.id;
-                    return (
-                      <button
-                        className={`rounded-xl border px-4 py-3 text-center transition active:scale-[0.98] ${selectionne ? 'border-ink bg-ink text-white' : 'border-kwiik bg-white text-kwiik'}`}
-                        key={creneau.id}
-                        onClick={() => {
-                          setCreneauSelectionne(creneau.id);
-                          setMessage('');
-                          setErreur('');
-                        }}
-                        type="button"
-                      >
-                        <span className="block text-base font-black">{heure(creneau.debut)}</span>
-                        <span className="mt-1 block text-xs font-semibold opacity-70">fin {heure(creneau.fin)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             )}
           </section>
         </>
@@ -811,92 +675,24 @@ export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) 
         </section>
       )}
 
-      {ongletActif === 'rdv' && (
-        <div className="sticky bottom-0 z-20 border-t border-line bg-white/95 px-5 py-3 backdrop-blur">
-          {message && <p className="m-0 mb-2 text-xs font-bold text-success-strong">{message}</p>}
-          {erreur && <p className="m-0 mb-2 text-xs font-bold text-danger-strong">{erreur}</p>}
-          <div className="mb-3 min-h-[34px] text-xs text-muted">
-            {prestationActive && creneauActif ? (
-              <p className="m-0"><span className="font-bold text-ink">{prestationActive.titre}</span> - {dateLong(creneauActif.debut)} a {heure(creneauActif.debut)}</p>
-            ) : prestationActive ? (
-              <p className="m-0">Prestation choisie : <span className="font-bold text-ink">{prestationActive.titre}</span>. Choisissez un creneau.</p>
-            ) : (
-              <p className="m-0">Choisissez une prestation et un creneau pour reserver.</p>
-            )}
-          </div>
+      {ongletActif === 'rdv' && erreur && (
+        <p className="m-0 px-5 pb-4 text-xs font-bold text-danger-strong">{erreur}</p>
+      )}
 
-          {paiement ? (
-            <div className="rounded-xl border border-line bg-surface-1 p-3">
-              <p className="m-0 text-xs font-bold text-ink">
-                Paiement en ligne :{' '}
-                {paiement.statut === 'reussi' ? (
-                  <span className="text-success-strong">réussi ✓</span>
-                ) : paiement.statut === 'echoue' ? (
-                  <span className="text-danger-strong">échoué</span>
-                ) : (
-                  <span className="text-warning-strong">en attente</span>
-                )}
-              </p>
-              {paiement.statut === 'en_attente' && (
-                <button
-                  className="mt-2 h-11 w-full rounded-xl bg-kwiik text-sm font-black text-white disabled:bg-[#B8B4AA]"
-                  disabled={simulationEnCours}
-                  onClick={() => void simulerPaiement()}
-                  type="button"
-                >
-                  {simulationEnCours ? 'Paiement en cours...' : 'Payer maintenant (simulation)'}
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="mb-3 grid grid-cols-2 gap-2">
-                <button
-                  className={`h-10 rounded-xl text-xs font-black transition ${modePaiement === 'a_la_livraison' ? 'bg-ink text-white' : 'bg-surface-1 text-muted'}`}
-                  onClick={() => setModePaiement('a_la_livraison')}
-                  type="button"
-                >
-                  À la livraison
-                </button>
-                <button
-                  className={`h-10 rounded-xl text-xs font-black transition ${modePaiement === 'en_ligne' ? 'bg-ink text-white' : 'bg-surface-1 text-muted'}`}
-                  onClick={() => setModePaiement('en_ligne')}
-                  type="button"
-                >
-                  Payer en ligne
-                </button>
-              </div>
-
-              {modePaiement === 'en_ligne' && (
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  <button
-                    className={`h-9 rounded-xl border text-xs font-bold transition ${operateur === 'orange_money' ? 'border-kwiik bg-kwiik-light text-kwiik-dark' : 'border-line bg-white text-muted'}`}
-                    onClick={() => setOperateur('orange_money')}
-                    type="button"
-                  >
-                    Orange Money
-                  </button>
-                  <button
-                    className={`h-9 rounded-xl border text-xs font-bold transition ${operateur === 'mtn_momo' ? 'border-kwiik bg-kwiik-light text-kwiik-dark' : 'border-line bg-white text-muted'}`}
-                    onClick={() => setOperateur('mtn_momo')}
-                    type="button"
-                  >
-                    MTN MoMo
-                  </button>
-                </div>
-              )}
-
-              <button
-                className={`h-12 w-full rounded-xl text-base font-black text-white shadow-[0_12px_24px_rgba(26,26,24,0.16)] transition ${reservationPossible ? 'bg-kwiik active:scale-[0.98]' : 'bg-[#B9B4AA]'}`}
-                disabled={!reservationPossible}
-                onClick={reserver}
-                type="button"
-              >
-                {reservationEnCours ? 'Reservation...' : 'Reserver maintenant'}
-              </button>
-            </>
-          )}
-        </div>
+      {sheetOuvert && prestationActive && (
+        <SheetReservation
+          categoriePrestataire={categoriePrincipale}
+          creneaux={prestataire.creneaux}
+          initialesPrestataire={initiales(nom)}
+          nomPrestataire={nom}
+          onFermer={() => {
+            setSheetOuvert(false);
+            void rafraichirCreneaux();
+          }}
+          onReserve={reserverDepuisSheet}
+          photoPrestataire={prestataire.photoLieuUrl}
+          prestation={{ id: prestationActive.id, titre: prestationActive.titre, prix: prestationActive.prix }}
+        />
       )}
     </section>
   );

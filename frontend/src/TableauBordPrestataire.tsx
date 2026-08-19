@@ -36,6 +36,7 @@ interface DemandeReservation {
   id: string;
   statut: StatutReservation;
   modePaiement: string;
+  note?: string | null;
   prestation: PrestationReservation;
   creneau: CreneauReservation;
   client: ClientReservation;
@@ -302,6 +303,12 @@ export function TableauBordPrestataire({
                         <p className="m-0">Jusqu'à {formatDateHeure(demande.creneau.fin)}</p>
                         <p className="m-0">Paiement : {libellerModePaiement(demande.modePaiement)}</p>
                       </div>
+
+                      {demande.note && (
+                        <p className="m-0 mt-3 rounded-xl bg-surface-1 p-3 text-[13px] leading-5 text-ink">
+                          <span className="font-semibold">Note du client :</span> {demande.note}
+                        </p>
+                      )}
 
                       {actions.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">

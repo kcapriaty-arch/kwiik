@@ -78,6 +78,7 @@ export class ReservationsService {
         prestationId: dto.prestationId,
         creneauId: dto.creneauId,
         modePaiement: dto.modePaiement,
+        note: dto.note?.trim() || undefined,
       },
       include: { prestation: true, creneau: true },
     });

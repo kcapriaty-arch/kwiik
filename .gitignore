@@ -7,3 +7,6 @@ backend/generated/
 kwiik-sauvegarde-16juillet/
 backend/uploads-prives/
 /*.png
+.devlog.txt
+qa_provider_email.txt
+qa_provider_token.txt

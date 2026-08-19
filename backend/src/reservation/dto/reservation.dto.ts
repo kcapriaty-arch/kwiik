@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export enum ModePaiementDto {
   en_ligne = 'en_ligne',
@@ -25,4 +25,9 @@ export class CreerReservationDto {
   @IsEnum(OperateurDto, { message: 'operateur doit etre orange_money ou mtn_momo.' })
   @IsOptional()
   operateur?: OperateurDto;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500, { message: 'La note ne peut pas depasser 500 caracteres.' })
+  note?: string;
 }

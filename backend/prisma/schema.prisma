@@ -244,6 +244,7 @@ model Reservation {
 
   statut       StatutReservation @default(en_attente)
   modePaiement ModePaiement
+  note         String?
 
   paiement Paiement?
   avis     Avis?

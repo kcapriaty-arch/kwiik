@@ -1,7 +1,7 @@
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
-import { api } from './api';
+import { api, urlImage } from './api';
 import { uploaderImage } from './upload';
-import { Carte, EtatVide } from './ui';
+import { Carte, EtatVide, SquelettesCartes } from './ui';
 
 interface Prestation {
   id: string;
@@ -20,7 +20,6 @@ interface ApiErrorResponse {
   };
 }
 
-const urlBackend = 'http://localhost:3000';
 const champClasse = 'w-full rounded-xl border border-line bg-surface-1 px-3 py-3 text-sm text-ink outline-none transition placeholder:text-[#9A988F] focus:border-kwiik focus:bg-white';
 const libelleClasse = 'grid gap-1.5 text-xs font-semibold text-muted';
 
@@ -30,10 +29,6 @@ const formatteurFcfa: Intl.NumberFormat = new Intl.NumberFormat('fr-FR', {
 
 function formatPrixFcfa(prix: number): string {
   return `${formatteurFcfa.format(prix)} FCFA`;
-}
-
-function urlImageBackend(url: string): string {
-  return `${urlBackend}${url}`;
 }
 
 function lireMessageErreur(error: unknown): string {
@@ -59,6 +54,7 @@ export function MesPrestations() {
   const [photoUrl, setPhotoUrl] = useState<string>('');
   const [prix, setPrix] = useState<string>('');
   const [dureeMin, setDureeMin] = useState<string>('');
+  const [idEnEdition, setIdEnEdition] = useState<string | null>(null);
 
   async function chargerPrestations(): Promise<void> {
     setChargement(true);
@@ -101,7 +97,27 @@ export function MesPrestations() {
     }
   }
 
-  async function ajouterPrestation(event: FormEvent<HTMLFormElement>): Promise<void> {
+  function reinitialiserFormulaire(): void {
+    setIdEnEdition(null);
+    setTitre('');
+    setDescription('');
+    setPhotoUrl('');
+    setPrix('');
+    setDureeMin('');
+  }
+
+  function modifierPrestation(prestation: Prestation): void {
+    setIdEnEdition(prestation.id);
+    setTitre(prestation.titre);
+    setDescription(prestation.description ?? '');
+    setPhotoUrl(prestation.photoUrl ?? '');
+    setPrix(String(prestation.prix));
+    setDureeMin(String(prestation.dureeMin));
+    setErreur('');
+    setMessageSucces('');
+  }
+
+  async function enregistrerPrestation(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     const prixNombre = Number(prix);
@@ -121,20 +137,23 @@ export function MesPrestations() {
     setErreur('');
     setMessageSucces('');
 
+    const donnees = {
+      titre: titre.trim(),
+      description: description.trim() || undefined,
+      photoUrl: photoUrl || undefined,
+      prix: prixNombre,
+      dureeMin: dureeNombre,
+    };
+
     try {
-      await api.post('/prestations', {
-        titre: titre.trim(),
-        description: description.trim() || undefined,
-        photoUrl: photoUrl || undefined,
-        prix: prixNombre,
-        dureeMin: dureeNombre,
-      });
-      setTitre('');
-      setDescription('');
-      setPhotoUrl('');
-      setPrix('');
-      setDureeMin('');
-      setMessageSucces('Prestation ajoutée.');
+      if (idEnEdition) {
+        await api.patch(`/prestations/${idEnEdition}`, donnees);
+        setMessageSucces('Prestation modifiée.');
+      } else {
+        await api.post('/prestations', donnees);
+        setMessageSucces('Prestation ajoutée.');
+      }
+      reinitialiserFormulaire();
       await chargerPrestations();
     } catch (error: unknown) {
       setErreur(lireMessageErreur(error));
@@ -151,6 +170,9 @@ export function MesPrestations() {
     try {
       await api.delete(`/prestations/${id}`);
       setMessageSucces('Prestation supprimée.');
+      if (idEnEdition === id) {
+        reinitialiserFormulaire();
+      }
       await chargerPrestations();
     } catch (error: unknown) {
       setErreur(lireMessageErreur(error));
@@ -168,8 +190,17 @@ export function MesPrestations() {
 
   return (
     <div className="grid gap-4">
-      <form className="grid gap-3 rounded-xl border border-line bg-white p-3" onSubmit={ajouterPrestation}>
-        <h2 className="m-0 text-[15px] font-semibold tracking-normal text-ink">Ajouter une prestation</h2>
+      <form className="grid gap-3 rounded-xl border border-line bg-white p-3" onSubmit={enregistrerPrestation}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="m-0 text-[15px] font-semibold tracking-normal text-ink">
+            {idEnEdition ? 'Modifier la prestation' : 'Ajouter une prestation'}
+          </h2>
+          {idEnEdition && (
+            <button className="text-xs font-semibold text-muted" onClick={reinitialiserFormulaire} type="button">
+              Annuler
+            </button>
+          )}
+        </div>
 
         <label className={libelleClasse}>
           Titre
@@ -198,6 +229,7 @@ export function MesPrestations() {
           Image de la prestation
           <input
             accept="image/*"
+            capture="environment"
             className={champClasse}
             disabled={uploadEnCours || actionEnCours}
             onChange={choisirPhotoPrestation}
@@ -211,7 +243,7 @@ export function MesPrestations() {
           <img
             alt="Aperçu de la prestation"
             className="h-40 w-full rounded-xl border border-line object-cover"
-            src={urlImageBackend(photoUrl)}
+            src={urlImage(photoUrl)}
           />
         )}
 
@@ -248,11 +280,11 @@ export function MesPrestations() {
           disabled={!formulaireValide}
           type="submit"
         >
-          {actionEnCours ? 'Ajout...' : 'Ajouter'}
+          {actionEnCours ? 'Enregistrement...' : idEnEdition ? 'Enregistrer les modifications' : 'Ajouter'}
         </button>
       </form>
 
-      {chargement && <p className="m-0 text-sm text-muted">Chargement des prestations...</p>}
+      {chargement && <SquelettesCartes />}
       {erreur && <p className="m-0 rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{erreur}</p>}
       {messageSucces && <p className="m-0 rounded-xl bg-success-soft p-3 text-sm font-semibold text-success-strong">{messageSucces}</p>}
 
@@ -272,7 +304,7 @@ export function MesPrestations() {
                   <img
                     alt={prestation.titre}
                     className="h-20 w-24 flex-none rounded-xl border border-line object-cover"
-                    src={urlImageBackend(prestation.photoUrl)}
+                    src={urlImage(prestation.photoUrl)}
                   />
                 )}
                 <div className="min-w-0 flex-1">
@@ -285,7 +317,15 @@ export function MesPrestations() {
                   </p>
                 </div>
               </div>
-              <div className="mt-3 border-t border-line pt-3">
+              <div className="mt-3 flex gap-2 border-t border-line pt-3">
+                <button
+                  className="h-9 rounded-xl border border-line bg-white px-3 text-xs font-semibold text-ink disabled:border-[#9A988F] disabled:text-[#9A988F]"
+                  disabled={actionEnCours}
+                  onClick={() => modifierPrestation(prestation)}
+                  type="button"
+                >
+                  Modifier
+                </button>
                 <button
                   className="h-9 rounded-xl border border-danger-strong bg-white px-3 text-xs font-semibold text-danger-strong disabled:border-[#9A988F] disabled:text-[#9A988F]"
                   disabled={actionEnCours}

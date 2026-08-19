@@ -1,8 +1,13 @@
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 export enum ModePaiementDto {
   en_ligne = 'en_ligne',
   a_la_livraison = 'a_la_livraison',
+}
+
+export enum OperateurDto {
+  orange_money = 'orange_money',
+  mtn_momo = 'mtn_momo',
 }
 
 export class CreerReservationDto {
@@ -16,4 +21,8 @@ export class CreerReservationDto {
     message: 'modePaiement doit etre en_ligne ou a_la_livraison.',
   })
   modePaiement: ModePaiementDto;
+
+  @IsEnum(OperateurDto, { message: 'operateur doit etre orange_money ou mtn_momo.' })
+  @IsOptional()
+  operateur?: OperateurDto;
 }

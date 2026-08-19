@@ -11,6 +11,8 @@ import {
 import { PrestatairesService } from './prestataires.service';
 import { CreerPrestataireDto, ModifierPrestataireDto } from './dto/prestataire.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { UtilisateurCourant } from '../auth/utilisateur-courant.decorator';
 
 @Controller('prestataires')
@@ -67,5 +69,14 @@ export class PrestatairesController {
   @Get(':id')
   vitrinePublique(@Param('id') id: string) {
     return this.prestatairesService.vitrinePublique(id);
+  }
+
+  // Reserve aux comptes admin (role positionne manuellement en base pour l'instant,
+  // aucune interface d'administration ne l'expose encore).
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch(':id/verifier')
+  verifier(@Param('id') id: string) {
+    return this.prestatairesService.verifier(id);
   }
 }

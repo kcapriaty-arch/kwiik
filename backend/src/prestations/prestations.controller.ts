@@ -4,12 +4,13 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UtilisateurCourant } from '../auth/utilisateur-courant.decorator';
-import { CreerPrestationDto } from './dto/prestation.dto';
+import { CreerPrestationDto, ModifierPrestationDto } from './dto/prestation.dto';
 import { PrestationsService } from './prestations.service';
 
 @UseGuards(JwtAuthGuard)
@@ -28,6 +29,15 @@ export class PrestationsController {
   @Get('mes-prestations')
   mesPrestations(@UtilisateurCourant() utilisateur: any) {
     return this.prestationsService.mesPrestations(utilisateur.id);
+  }
+
+  @Patch(':id')
+  modifier(
+    @UtilisateurCourant() utilisateur: any,
+    @Param('id') id: string,
+    @Body() dto: ModifierPrestationDto,
+  ) {
+    return this.prestationsService.modifier(utilisateur.id, id, dto);
   }
 
   @Delete(':id')

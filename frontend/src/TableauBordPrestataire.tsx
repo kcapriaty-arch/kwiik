@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import { MesCreneaux } from './MesCreneaux';
 import { MesPrestations } from './MesPrestations';
-import { Badge, Carte, CarteStat, EnteteEcran, EtatVide, type BadgeVariant } from './ui';
+import { Badge, Carte, CarteStat, EnteteEcran, EtatVide, SquelettesCartes, type BadgeVariant } from './ui';
 
 type StatutReservation =
   | 'en_attente'
@@ -257,7 +257,7 @@ export function TableauBordPrestataire({
 
         {ongletActif === 'demandes' && (
           <div role="tabpanel">
-            {chargement && <p className="m-0 text-sm text-muted">Chargement des demandes...</p>}
+            {chargement && <SquelettesCartes />}
 
             {erreur && !erreurNonPrestataire && (
               <p className="m-0 rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{erreur}</p>

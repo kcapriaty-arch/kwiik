@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, type FormEvent } from 'react';
-import { api } from './api';
+import { api, urlImage as imageUrl } from './api';
 import { uploaderImage, uploaderImagePrivee } from './upload';
 
 interface UtilisateurPro {
@@ -51,7 +51,6 @@ interface IconProps {
   className?: string;
 }
 
-const urlBackend = 'http://localhost:3000';
 const champClasse = 'w-full rounded-xl border border-line bg-white px-3 py-3 text-sm text-ink outline-none transition placeholder:text-[#9A988F] focus:border-kwiik';
 const libelleClasse = 'grid gap-1.5 text-xs font-bold text-muted';
 
@@ -98,10 +97,6 @@ function UploadIcon({ className = '' }: IconProps) {
       <path d="M12 3v12" />
     </svg>
   );
-}
-
-function imageUrl(url: string): string {
-  return url.startsWith('http://') || url.startsWith('https://') ? url : `${urlBackend}${url}`;
 }
 
 function lireMessageErreur(error: unknown): string {
@@ -272,7 +267,7 @@ export function MonProfilPrestataire() {
 
   if (chargement) {
     return (
-      <section className="min-h-full bg-[#F4F4F5] px-5 py-6 text-left text-ink">
+      <section className="min-h-full bg-surface-0 px-5 py-6 text-left text-ink">
         <p className="m-0 text-sm text-muted">Chargement du profil prestataire...</p>
       </section>
     );
@@ -280,7 +275,7 @@ export function MonProfilPrestataire() {
 
   if (!prestataire) {
     return (
-      <section className="min-h-full bg-[#F4F4F5] px-5 py-6 text-left text-ink">
+      <section className="min-h-full bg-surface-0 px-5 py-6 text-left text-ink">
         <h1 className="m-0 text-3xl font-black tracking-normal text-ink">Profil prestataire</h1>
         <p className="m-0 mt-4 rounded-2xl bg-white p-4 text-sm font-semibold text-danger-strong">{erreur}</p>
       </section>
@@ -291,7 +286,7 @@ export function MonProfilPrestataire() {
   const avatar = photoLieuUrl;
 
   return (
-    <section className="min-h-full bg-[#F4F4F5] px-5 pb-8 pt-6 text-left text-ink">
+    <section className="min-h-full bg-surface-0 px-5 pb-8 pt-6 text-left text-ink">
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <div className="relative h-24 w-24 flex-none overflow-hidden rounded-full bg-white shadow-sm">
@@ -302,7 +297,7 @@ export function MonProfilPrestataire() {
                 {initialesDepuisNom(nom)}
               </div>
             )}
-            <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-success-strong text-white ring-4 ring-[#F4F4F5]">
+            <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-success-strong text-white ring-4 ring-surface-0">
               <CheckIcon className="h-4 w-4" />
             </span>
           </div>
@@ -314,7 +309,7 @@ export function MonProfilPrestataire() {
             </p>
           </div>
         </div>
-        <button className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-white text-ink shadow-sm" type="button">
+        <button aria-label="Changer la photo de profil" className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-white text-ink shadow-sm" type="button">
           <CameraIcon className="h-7 w-7" />
         </button>
       </div>
@@ -339,7 +334,7 @@ export function MonProfilPrestataire() {
       <div className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="m-0 text-2xl font-black tracking-normal text-ink">Optimisation du profil</h2>
         <div className="mt-5 flex items-center gap-5">
-          <div className="grid h-24 w-24 place-items-center rounded-full bg-[conic-gradient(#185FA5_var(--progress),#E7E0D6_0)]" style={{ '--progress': `${tauxOptimisation}%` } as CSSProperties}>
+          <div className="grid h-24 w-24 place-items-center rounded-full bg-[conic-gradient(var(--color-kwiik)_var(--progress),var(--color-line)_0)]" style={{ '--progress': `${tauxOptimisation}%` } as CSSProperties}>
             <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-black text-ink">{tauxOptimisation}%</div>
           </div>
           <div>
@@ -370,7 +365,7 @@ export function MonProfilPrestataire() {
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-kwiik bg-kwiik-light px-4 py-4 text-sm font-black text-kwiik-dark">
               <UploadIcon className="h-5 w-5" />
               Ajouter / remplacer la photo principale
-              <input accept="image/*" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'photoLieu', setPhotoLieuUrl)} type="file" />
+              <input accept="image/*" capture="environment" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'photoLieu', setPhotoLieuUrl)} type="file" />
             </label>
             {photoLieuUrl && <img alt="Photo principale boutique" className="h-44 w-full rounded-xl object-cover" src={imageUrl(photoLieuUrl)} />}
           </div>
@@ -383,7 +378,7 @@ export function MonProfilPrestataire() {
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-white px-4 py-4 text-sm font-black text-ink">
               <CameraIcon className="h-5 w-5" />
               Ajouter plusieurs images
-              <input accept="image/*" className="sr-only" disabled={Boolean(uploadEnCours)} multiple onChange={(event) => void ajouterPhotosBoutique(event)} type="file" />
+              <input accept="image/*" capture="environment" className="sr-only" disabled={Boolean(uploadEnCours)} multiple onChange={(event) => void ajouterPhotosBoutique(event)} type="file" />
             </label>
             {photosBoutique.length > 0 && (
               <div className="grid grid-cols-2 gap-3">
@@ -418,7 +413,7 @@ export function MonProfilPrestataire() {
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-white px-4 py-4 text-sm font-black text-ink">
               <CameraIcon className="h-5 w-5" />
               Photo privee du responsable
-              <input accept="image/*" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'photoProfil', setPhotoProfilPriveeUrl, true)} type="file" />
+              <input accept="image/*" capture="user" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'photoProfil', setPhotoProfilPriveeUrl, true)} type="file" />
             </label>
             {photoProfilPriveeUrl && <p className="m-0 rounded-xl bg-success-soft p-3 text-sm font-bold text-success-strong">Photo privee enregistree dans le dossier securise.</p>}
           </div>
@@ -428,11 +423,11 @@ export function MonProfilPrestataire() {
             <div className="grid grid-cols-2 gap-3">
               <label className="grid cursor-pointer place-items-center rounded-xl border border-dashed border-line bg-surface-1 p-4 text-center text-xs font-black text-muted">
                 Recto CNI
-                <input accept="image/*" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'cniRecto', setCniRectoUrl, true)} type="file" />
+                <input accept="image/*" capture="environment" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'cniRecto', setCniRectoUrl, true)} type="file" />
               </label>
               <label className="grid cursor-pointer place-items-center rounded-xl border border-dashed border-line bg-surface-1 p-4 text-center text-xs font-black text-muted">
                 Verso CNI
-                <input accept="image/*" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'cniVerso', setCniVersoUrl, true)} type="file" />
+                <input accept="image/*" capture="environment" className="sr-only" disabled={Boolean(uploadEnCours)} onChange={(event) => void envoyerImage(event, 'cniVerso', setCniVersoUrl, true)} type="file" />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">

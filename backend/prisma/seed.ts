@@ -80,6 +80,93 @@ const domaines: DomaineSeed[] = [
   },
 ];
 
+// Metiers exigeant l'upload d'une licence/certification a l'onboarding.
+// Liste indicative a affiner avec le produit au fur et a mesure des metiers ajoutes.
+const categoriesAvecLicence = new Set(['Esthétique', 'Massage', 'Électricité', 'Soins à domicile']);
+
+interface PrestataireDemoSeed {
+  telephone: string;
+  nom: string;
+  ville: string;
+  quartier: string;
+  adresse: string;
+  description: string;
+  categorieNom: string;
+  modeService: 'adresse_fixe' | 'a_domicile' | 'en_ligne';
+  photoLieuUrl: string;
+  abonnementNom: string;
+}
+
+// Prestataires fictifs pour illustrer les vitrines avec de vraies photos en attendant
+// l'arrivee de vrais prestataires. A completer au fur et a mesure des photos fournies.
+const prestatairesDemo: PrestataireDemoSeed[] = [
+  {
+    telephone: '699000001',
+    nom: 'Chantal Mbarga',
+    ville: 'Douala',
+    quartier: 'Bonapriso',
+    adresse: 'Rue des Cocotiers, pres de la pharmacie Bonapriso',
+    description:
+      'Salon de coiffure haut de gamme specialise dans les coiffures naturelles, les chignons de ceremonie et les soins capillaires.',
+    categorieNom: 'Coiffure',
+    modeService: 'adresse_fixe',
+    photoLieuUrl: '/uploads/demo-coiffure-salon.png',
+    abonnementNom: 'Premium',
+  },
+  {
+    telephone: '699000002',
+    nom: 'Solange Eyenga',
+    ville: 'Douala',
+    quartier: 'Akwa',
+    adresse: 'Intervention a domicile sur toute la zone Akwa - Bali',
+    description:
+      'Service de menage complet a domicile : entretien courant, grand nettoyage et remise en etat apres reception.',
+    categorieNom: 'Ménage',
+    modeService: 'a_domicile',
+    photoLieuUrl: '/uploads/demo-menage.png',
+    abonnementNom: 'Pro',
+  },
+  {
+    telephone: '699000003',
+    nom: 'Junior Talla',
+    ville: 'Yaoundé',
+    quartier: 'Bastos',
+    adresse: 'Intervention a domicile sur Yaounde et environs',
+    description:
+      'Plombier experimente pour depannage, installation sanitaire et renovation de salle de bain, intervention rapide.',
+    categorieNom: 'Plomberie',
+    modeService: 'a_domicile',
+    photoLieuUrl: '/uploads/demo-plomberie.png',
+    abonnementNom: 'Pro',
+  },
+  {
+    telephone: '699000004',
+    nom: 'Aïcha Fouda',
+    ville: 'Douala',
+    quartier: 'Bonanjo',
+    adresse: "Institut de beaute, Avenue de l'Independance, Bonanjo",
+    description:
+      'Institut de soins esthetiques haut de gamme : soins du visage, gommages et rituels de bien-etre sur mesure.',
+    categorieNom: 'Esthétique',
+    modeService: 'adresse_fixe',
+    photoLieuUrl: '/uploads/demo-esthetique-spa.png',
+    abonnementNom: 'Premium',
+  },
+  {
+    telephone: '699000005',
+    nom: 'Bruno Ateba',
+    ville: 'Yaoundé',
+    quartier: 'Nlongkak',
+    adresse: 'Traiteur evenementiel, deplacement sur le lieu de reception',
+    description:
+      'Traiteur pour mariages, receptions et evenements d’entreprise : menus raffines et service haut de gamme sur site.',
+    categorieNom: 'Traiteur',
+    modeService: 'a_domicile',
+    photoLieuUrl: '/uploads/demo-traiteur.png',
+    abonnementNom: 'Premium',
+  },
+];
+
 async function main() {
   const abonnements = [
     {
@@ -121,12 +208,15 @@ async function main() {
     });
 
     for (const nomCategorie of domaineSeed.categories) {
+      const licenceRequise = categoriesAvecLicence.has(nomCategorie);
+
       await prisma.categorie.upsert({
         where: { nom: nomCategorie },
-        update: { domaineId: domaine.id },
+        update: { domaineId: domaine.id, licenceRequise },
         create: {
           nom: nomCategorie,
           domaineId: domaine.id,
+          licenceRequise,
         },
       });
     }
@@ -137,6 +227,53 @@ async function main() {
     'Domaines/categories seedes :',
     domaines.map((d) => `${d.nom} (${d.categories.length})`).join(', '),
   );
+
+  for (const demo of prestatairesDemo) {
+    const categorie = await prisma.categorie.findUnique({ where: { nom: demo.categorieNom } });
+    const abonnement = await prisma.abonnement.findUnique({ where: { nom: demo.abonnementNom } });
+
+    if (!categorie || !abonnement) {
+      console.warn(`Categorie ou abonnement introuvable pour le prestataire demo ${demo.nom}, ignore.`);
+      continue;
+    }
+
+    const utilisateur = await prisma.utilisateur.upsert({
+      where: { telephone: demo.telephone },
+      update: { nom: demo.nom },
+      create: { telephone: demo.telephone, nom: demo.nom },
+    });
+
+    await prisma.prestataire.upsert({
+      where: { utilisateurId: utilisateur.id },
+      update: {
+        ville: demo.ville,
+        quartier: demo.quartier,
+        adresse: demo.adresse,
+        description: demo.description,
+        photoLieuUrl: demo.photoLieuUrl,
+        photosBoutique: [demo.photoLieuUrl],
+        modeService: demo.modeService,
+        abonnementId: abonnement.id,
+        verifie: true,
+        categories: { set: [{ id: categorie.id }] },
+      },
+      create: {
+        utilisateurId: utilisateur.id,
+        ville: demo.ville,
+        quartier: demo.quartier,
+        adresse: demo.adresse,
+        description: demo.description,
+        photoLieuUrl: demo.photoLieuUrl,
+        photosBoutique: [demo.photoLieuUrl],
+        modeService: demo.modeService,
+        abonnementId: abonnement.id,
+        verifie: true,
+        categories: { connect: [{ id: categorie.id }] },
+      },
+    });
+  }
+
+  console.log('Prestataires demo seedes :', prestatairesDemo.map((p) => p.nom).join(', '));
 }
 
 main()

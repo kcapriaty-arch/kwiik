@@ -67,12 +67,12 @@ export function initialesDepuisNom(valeur: string | null | undefined, fallback =
 
 export function EnteteEcran({ titre, sousTitre, onRetour, action }: EnteteEcranProps) {
   return (
-    <header className="border-b border-line bg-surface-1 px-5 py-4 text-left">
+    <header className="border-b border-line bg-surface-2 px-5 py-5 text-left">
       <div className="flex items-center gap-3">
         {onRetour && (
           <button
             aria-label="Retour"
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-white text-ink ring-1 ring-line transition active:scale-[0.98]"
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-ink transition hover:bg-surface-1 active:scale-[0.98]"
             onClick={onRetour}
             type="button"
           >
@@ -80,8 +80,8 @@ export function EnteteEcran({ titre, sousTitre, onRetour, action }: EnteteEcranP
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="m-0 truncate text-lg font-semibold tracking-normal text-ink">{titre}</h1>
-          {sousTitre && <p className="m-0 mt-1 text-xs leading-5 text-muted">{sousTitre}</p>}
+          <h1 className="m-0 truncate text-[19px] font-semibold tracking-tight text-ink">{titre}</h1>
+          {sousTitre && <p className="m-0 mt-1 text-[13px] leading-5 text-muted">{sousTitre}</p>}
         </div>
         {action && <div className="flex-none">{action}</div>}
       </div>
@@ -92,7 +92,7 @@ export function EnteteEcran({ titre, sousTitre, onRetour, action }: EnteteEcranP
 export function Badge({ children, variante = 'neutral', className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${variantesBadge[variante]} ${className}`}
+      className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium ${variantesBadge[variante]} ${className}`}
     >
       {children}
     </span>
@@ -116,7 +116,7 @@ export function Carte({ children, className = '', onClick, ariaLabel }: CartePro
   return (
     <article
       aria-label={ariaLabel}
-      className={`rounded-xl border border-line bg-white p-3 ${interactive ? 'cursor-pointer transition active:scale-[0.99]' : ''} ${className}`}
+      className={`rounded-2xl border border-line bg-white p-4 ${interactive ? 'cursor-pointer transition hover:border-[#D8D7D0] active:scale-[0.99]' : ''} ${className}`}
       onClick={onClick}
       onKeyDown={gererClavier}
       role={interactive ? 'button' : undefined}
@@ -129,17 +129,45 @@ export function Carte({ children, className = '', onClick, ariaLabel }: CartePro
 
 export function CarteStat({ valeur, libelle, variante = 'neutral' }: CarteStatProps) {
   return (
-    <div className="rounded-xl bg-surface-1 p-3 text-center">
-      <div className={`text-lg font-semibold ${variantesStat[variante]}`}>{valeur}</div>
-      <div className="text-[11px] text-[#9A988F]">{libelle}</div>
+    <div className="rounded-2xl border border-line bg-white p-3.5 text-center">
+      <div className={`text-lg font-semibold tracking-tight ${variantesStat[variante]}`}>{valeur}</div>
+      <div className="mt-0.5 text-[11px] text-muted">{libelle}</div>
+    </div>
+  );
+}
+
+interface SqueletteProps {
+  className?: string;
+}
+
+// Bloc de chargement generique (pulsation Tailwind), a dimensionner via className
+// pour approcher la forme du contenu final plutot qu'un texte "Chargement...".
+export function Squelette({ className = '' }: SqueletteProps) {
+  return <div aria-hidden="true" className={`animate-pulse rounded-xl bg-surface-1 ${className}`} />;
+}
+
+export function SquelettesCartes({ nombre = 3 }: { nombre?: number }) {
+  return (
+    <div className="grid gap-3" role="status" aria-label="Chargement en cours">
+      {Array.from({ length: nombre }, (_, i) => (
+        <div className="rounded-2xl border border-line bg-white p-4" key={i}>
+          <div className="flex items-center gap-3">
+            <Squelette className="h-14 w-14 flex-none" />
+            <div className="grid flex-1 gap-2">
+              <Squelette className="h-4 w-3/4" />
+              <Squelette className="h-3 w-1/2" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 export function EtatVide({ titre, message, action }: EtatVideProps) {
   return (
-    <div className="rounded-xl bg-surface-1 p-4 text-left">
-      <h2 className="m-0 text-sm font-semibold tracking-normal text-ink">{titre}</h2>
+    <div className="rounded-2xl border border-dashed border-line bg-white p-5 text-left">
+      <h2 className="m-0 text-sm font-semibold tracking-tight text-ink">{titre}</h2>
       <p className="m-0 mt-1 text-sm leading-6 text-muted">{message}</p>
       {action && <div className="mt-3">{action}</div>}
     </div>

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -12,8 +13,16 @@ import { api } from './api';
 export interface UtilisateurSession {
   id: string;
   nom: string;
-  telephone: string;
+  telephone: string | null;
+  email: string | null;
+  emailConfirme: boolean;
+  creeLe: string;
+  photoProfilUrl: string | null;
+  cniRectoUrl: string | null;
+  cniVersoUrl: string | null;
   estPrestataire: boolean;
+  identiteComplete: boolean;
+  prestataireOnboardingComplete: boolean;
 }
 
 interface SessionContextValue {
@@ -33,6 +42,11 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: SessionProviderProps) {
   const [utilisateur, setUtilisateur] = useState<UtilisateurSession | null>(null);
   const [chargement, setChargement] = useState<boolean>(true);
+  // Seul le tout premier chargement doit afficher l'ecran plein ecran "Chargement
+  // de la session..." : un recharger() ulterieur (ex. apres avoir enregistre un
+  // champ de profil) ne doit pas demonter/remonter l'ecran affiche, sous peine de
+  // perdre l'etat local de ses composants (message de succes, etc.).
+  const aDejaCharge = useRef(false);
 
   const recharger = useCallback(async (): Promise<void> => {
     const token = localStorage.getItem('kwiik_token');
@@ -40,10 +54,13 @@ export function SessionProvider({ children }: SessionProviderProps) {
     if (!token) {
       setUtilisateur(null);
       setChargement(false);
+      aDejaCharge.current = true;
       return;
     }
 
-    setChargement(true);
+    if (!aDejaCharge.current) {
+      setChargement(true);
+    }
 
     try {
       const { data } = await api.get<UtilisateurSession>('/auth/moi');
@@ -53,6 +70,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setUtilisateur(null);
     } finally {
       setChargement(false);
+      aDejaCharge.current = true;
     }
   }, []);
 

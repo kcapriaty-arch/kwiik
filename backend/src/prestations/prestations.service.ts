@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreerPrestationDto } from './dto/prestation.dto';
+import { CreerPrestationDto, ModifierPrestationDto } from './dto/prestation.dto';
 
 @Injectable()
 export class PrestationsService {
@@ -42,6 +42,35 @@ export class PrestationsService {
     return this.prisma.prestation.findMany({
       where: { prestataireId: prestataire.id },
       orderBy: { titre: 'asc' },
+    });
+  }
+
+  async modifier(
+    utilisateurId: string,
+    prestationId: string,
+    dto: ModifierPrestationDto,
+  ) {
+    const prestataire = await this.getPrestataire(utilisateurId);
+
+    const prestation = await this.prisma.prestation.findUnique({
+      where: { id: prestationId },
+    });
+    if (!prestation) {
+      throw new NotFoundException('Prestation introuvable.');
+    }
+    if (prestation.prestataireId !== prestataire.id) {
+      throw new ForbiddenException('Cette prestation ne vous appartient pas.');
+    }
+
+    return this.prisma.prestation.update({
+      where: { id: prestationId },
+      data: {
+        ...(dto.titre !== undefined && { titre: dto.titre }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.photoUrl !== undefined && { photoUrl: dto.photoUrl }),
+        ...(dto.prix !== undefined && { prix: dto.prix }),
+        ...(dto.dureeMin !== undefined && { dureeMin: dto.dureeMin }),
+      },
     });
   }
 

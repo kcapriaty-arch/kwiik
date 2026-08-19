@@ -5,7 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 // Ce qu'on a mis dans le jeton lors de sa création (payload)
 export interface JwtPayload {
   sub: string; // id de l'utilisateur
-  telephone: string;
+  email: string | null;
   role: string;
 }
 
@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   validate(payload: JwtPayload) {
     return {
       id: payload.sub,
-      telephone: payload.telephone,
+      email: payload.email,
       role: payload.role,
     };
   }

@@ -11,6 +11,10 @@ import { CreneauxModule } from './creneaux/creneaux.module';
 import { ReservationsModule } from './reservation/reservations.module';
 import { AvisModule } from './avis/avis.module';
 import { UploadModule } from './upload/upload.module';
+import { FavorisModule } from './favoris/favoris.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { PaiementsModule } from './paiements/paiements.module';
 
 @Module({
   imports: [
@@ -26,6 +30,10 @@ import { UploadModule } from './upload/upload.module';
     ReservationsModule,
     AvisModule,
     UploadModule,
+    FavorisModule,
+    NotificationsModule,
+    ConversationsModule,
+    PaiementsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

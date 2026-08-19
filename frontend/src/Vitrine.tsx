@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from './api';
+import { api, urlImage as imageUrl } from './api';
+import { Badge, SquelettesCartes } from './ui';
 
 interface VitrineProps {
   prestataireId: string;
   onRetour: () => void;
+  onContacter?: (conversation: { id: string; autrePartie: string }) => void;
 }
 
 interface UtilisateurPrestataire {
@@ -55,6 +57,7 @@ interface PrestataireDetail {
   abonnement: Abonnement | null;
   prestations: Prestation[];
   creneaux: Creneau[];
+  verifie?: boolean;
 }
 
 interface MoyenneAvis {
@@ -92,7 +95,6 @@ interface HoraireJour {
 type OngletVitrine = 'rdv' | 'offrir' | 'avis' | 'apropos';
 type IconName = 'back' | 'right' | 'down' | 'heart' | 'location' | 'clock' | 'gift' | 'map' | 'user';
 
-const urlBackend = 'http://localhost:3000';
 const nomsJours: string[] = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const ordreJours: number[] = [1, 2, 3, 4, 5, 6, 0];
 const onglets: Array<{ id: OngletVitrine; libelle: string }> = [
@@ -177,10 +179,6 @@ function note(noteValeur: number): string {
   return formatNote.format(noteValeur);
 }
 
-function imageUrl(url: string): string {
-  return url.startsWith('http://') || url.startsWith('https://') ? url : `${urlBackend}${url}`;
-}
-
 function estImage(url: string | null | undefined): url is string {
   return Boolean(url);
 }
@@ -222,7 +220,8 @@ function minutesEnHeure(valeur: number): string {
   return `${h}:${m}`;
 }
 
-export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
+export function Vitrine({ prestataireId, onRetour, onContacter }: VitrineProps) {
+  const [contactEnCours, setContactEnCours] = useState<boolean>(false);
   const [prestataire, setPrestataire] = useState<PrestataireDetail | null>(null);
   const [moyenneAvis, setMoyenneAvis] = useState<MoyenneAvis | null>(null);
   const [avis, setAvis] = useState<AvisPrestataire[]>([]);
@@ -235,6 +234,14 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
   const [reservationEnCours, setReservationEnCours] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [erreur, setErreur] = useState<string>('');
+  const [modePaiement, setModePaiement] = useState<'a_la_livraison' | 'en_ligne'>('a_la_livraison');
+  const [operateur, setOperateur] = useState<'orange_money' | 'mtn_momo'>('orange_money');
+  const [paiement, setPaiement] = useState<{ id: string; statut: string } | null>(null);
+  const [simulationEnCours, setSimulationEnCours] = useState<boolean>(false);
+  const [indexImage, setIndexImage] = useState<number>(0);
+  const [prestationDetaillee, setPrestationDetaillee] = useState<string>('');
+  const [estFavori, setEstFavori] = useState<boolean>(false);
+  const [favoriEnCours, setFavoriEnCours] = useState<boolean>(false);
 
   useEffect(() => {
     async function charger(): Promise<void> {
@@ -245,14 +252,17 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
       setCreneauSelectionne('');
       setJourActif('');
       setOngletActif('rdv');
+      setIndexImage(0);
+      setPrestationDetaillee('');
       setMoyenneAvis(null);
       setAvis([]);
       setAvisDisponibles(false);
 
-      const [detail, moyenne, listeAvis] = await Promise.allSettled([
+      const [detail, moyenne, listeAvis, idsFavoris] = await Promise.allSettled([
         api.get<PrestataireDetail>(`/prestataires/${prestataireId}`),
         api.get<MoyenneAvis>(`/avis/prestataire/${prestataireId}/moyenne`),
         api.get<AvisPrestataire[]>(`/avis/prestataire/${prestataireId}`),
+        api.get<string[]>('/favoris/ids'),
       ]);
 
       try {
@@ -269,6 +279,8 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
           setAvis(listeAvis.value.data);
           setAvisDisponibles(true);
         }
+
+        setEstFavori(idsFavoris.status === 'fulfilled' && idsFavoris.value.data.includes(prestataireId));
       } catch (error: unknown) {
         setPrestataire(null);
         setErreur(lireErreur(error));
@@ -334,6 +346,65 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
     return [prestataire.photoLieuUrl, ...(prestataire.photosBoutique ?? []), ...prestataire.prestations.map((prestation) => prestation.photoUrl)].filter(estImage);
   }, [prestataire]);
 
+  async function contacter(): Promise<void> {
+    if (contactEnCours || !prestataire) {
+      return;
+    }
+
+    setContactEnCours(true);
+    try {
+      const { data } = await api.post<{ id: string }>('/conversations/demarrer', { prestataireId });
+      onContacter?.({ id: data.id, autrePartie: nom });
+    } catch (error: unknown) {
+      setErreur(lireErreur(error));
+    } finally {
+      setContactEnCours(false);
+    }
+  }
+
+  async function basculerFavori(): Promise<void> {
+    if (favoriEnCours) {
+      return;
+    }
+
+    setFavoriEnCours(true);
+    try {
+      const { data } = await api.post<{ favori: boolean }>(`/favoris/${prestataireId}`);
+      setEstFavori(data.favori);
+    } catch {
+      // Echec silencieux : ce n'est pas une action critique du parcours de reservation.
+    } finally {
+      setFavoriEnCours(false);
+    }
+  }
+
+  async function simulerPaiement(): Promise<void> {
+    if (!paiement || simulationEnCours) {
+      return;
+    }
+
+    setSimulationEnCours(true);
+    try {
+      const { data } = await api.post<{ statut: string }>(`/paiements/${paiement.id}/simuler`, {
+        resultat: 'reussi',
+      });
+      setPaiement((p) => (p ? { ...p, statut: data.statut } : p));
+    } catch (error: unknown) {
+      setErreur(lireErreur(error));
+    } finally {
+      setSimulationEnCours(false);
+    }
+  }
+
+  async function rafraichirCreneaux(): Promise<void> {
+    try {
+      const { data } = await api.get<PrestataireDetail>(`/prestataires/${prestataireId}`);
+      setPrestataire(data);
+    } catch {
+      // Echec silencieux : un message d'erreur est deja affiche pour l'action en cours.
+    }
+  }
+
   async function reserver(): Promise<void> {
     if (!prestationSelectionnee || !creneauSelectionne) {
       return;
@@ -342,16 +413,32 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
     setReservationEnCours(true);
     setErreur('');
     setMessage('');
+    setPaiement(null);
 
     try {
-      await api.post('/reservations', {
+      const { data } = await api.post<{ id: string }>('/reservations', {
         prestationId: prestationSelectionnee,
         creneauId: creneauSelectionne,
-        modePaiement: 'a_la_livraison',
+        modePaiement,
+        ...(modePaiement === 'en_ligne' && { operateur }),
       });
-      setMessage('Reservation envoyee avec succes.');
+
+      if (modePaiement === 'en_ligne') {
+        const { data: paiementCree } = await api.get<{ id: string; statut: string }>(
+          `/paiements/reservation/${data.id}`,
+        );
+        setPaiement({ id: paiementCree.id, statut: paiementCree.statut });
+        setMessage('Réservation envoyée. Finalisez le paiement ci-dessous.');
+      } else {
+        setMessage('Reservation envoyee avec succes.');
+      }
     } catch (error: unknown) {
       setErreur(lireErreur(error));
+      // Le creneau choisi peut avoir ete pris entre-temps : on l'oublie et on
+      // recharge la liste a jour plutot que de laisser l'utilisateur reessayer
+      // sur un choix devenu invalide.
+      setCreneauSelectionne('');
+      await rafraichirCreneaux();
     } finally {
       setReservationEnCours(false);
     }
@@ -360,13 +447,15 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
     return (
       <section className="min-h-full bg-white text-left text-ink">
         <div className="flex h-20 items-center justify-between border-b border-line bg-white px-5">
-          <button className="flex h-11 w-11 items-center justify-center rounded-full text-ink" onClick={onRetour} type="button">
+          <button aria-label="Retour" className="flex h-11 w-11 items-center justify-center rounded-full text-ink" onClick={onRetour} type="button">
             <Icon className="h-7 w-7" name="back" />
           </button>
-          <h1 className="m-0 text-xl font-black tracking-[0.42em] text-ink">KWIIK</h1>
+          <h1 className="m-0 text-lg font-black tracking-widest text-ink">KWIIK</h1>
           <span className="h-11 w-11" />
         </div>
-        <p className="m-0 p-5 text-sm text-muted">Chargement de la vitrine...</p>
+        <div className="p-5">
+          <SquelettesCartes />
+        </div>
       </section>
     );
   }
@@ -375,10 +464,10 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
     return (
       <section className="min-h-full bg-white text-left text-ink">
         <div className="flex h-20 items-center justify-between border-b border-line bg-white px-5">
-          <button className="flex h-11 w-11 items-center justify-center rounded-full text-ink" onClick={onRetour} type="button">
+          <button aria-label="Retour" className="flex h-11 w-11 items-center justify-center rounded-full text-ink" onClick={onRetour} type="button">
             <Icon className="h-7 w-7" name="back" />
           </button>
-          <h1 className="m-0 text-xl font-black tracking-[0.42em] text-ink">KWIIK</h1>
+          <h1 className="m-0 text-lg font-black tracking-widest text-ink">KWIIK</h1>
           <span className="h-11 w-11" />
         </div>
         {erreur && <p className="m-0 p-5 text-sm font-semibold text-danger-strong">{erreur}</p>}
@@ -396,16 +485,14 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
   const reservationPossible = Boolean(prestationSelectionnee && creneauSelectionne && !reservationEnCours);
 
   return (
-    <section className="min-h-full bg-[#F7F7F7] text-left text-ink">
+    <section className="min-h-full bg-surface-0 text-left text-ink">
       <header className="sticky top-0 z-30 bg-white">
         <div className="flex h-20 items-center justify-between border-b border-line px-5">
           <button aria-label="Retour" className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-ink" onClick={onRetour} type="button">
             <Icon className="h-7 w-7" name="back" />
           </button>
-          <h1 className="m-0 text-xl font-black tracking-[0.42em] text-ink">KWIIK</h1>
-          <button aria-label="Compte" className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-ink text-white" type="button">
-            <Icon className="h-6 w-6" name="user" />
-          </button>
+          <h1 className="m-0 text-lg font-black tracking-widest text-ink">KWIIK</h1>
+          <span className="h-11 w-11" />
         </div>
 
         <nav className="grid grid-cols-4 border-b border-line bg-white">
@@ -413,13 +500,13 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
             const actif = ongletActif === onglet.id;
             return (
               <button
-                className={`relative h-16 text-sm font-bold transition ${actif ? 'text-ink' : 'text-muted'}`}
+                className={`relative h-14 text-sm font-bold transition ${actif ? 'text-kwiik' : 'text-muted'}`}
                 key={onglet.id}
                 onClick={() => setOngletActif(onglet.id)}
                 type="button"
               >
                 {onglet.libelle}
-                {actif && <span className="absolute bottom-0 left-0 right-0 h-1 bg-ink" />}
+                {actif && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-kwiik" />}
               </button>
             );
           })}
@@ -429,30 +516,53 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
       {ongletActif === 'rdv' && (
         <>
           <section className="relative h-[250px] overflow-hidden bg-soft-map">
-            {images[0] ? (
-              <img alt={`Lieu ${nom}`} className="absolute inset-0 h-full w-full object-cover" src={imageUrl(images[0])} />
+            {images[indexImage] ? (
+              <img alt={`Lieu ${nom}`} className="absolute inset-0 h-full w-full object-cover" src={imageUrl(images[indexImage])} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-kwiik-light via-white to-coral-soft text-3xl font-black text-kwiik-dark">
                 {initiales(nom)}
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
-            <button aria-label="Image precedente" className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur" type="button">
-              <Icon className="h-7 w-7" name="back" />
-            </button>
-            <button aria-label="Image suivante" className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur" type="button">
-              <Icon className="h-7 w-7" name="right" />
-            </button>
-            <button aria-label="Ajouter aux favoris" className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur" type="button">
+            {images.length > 1 && (
+              <>
+                <button
+                  aria-label="Image precedente"
+                  className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur"
+                  onClick={() => setIndexImage((i) => (i - 1 + images.length) % images.length)}
+                  type="button"
+                >
+                  <Icon className="h-7 w-7" name="back" />
+                </button>
+                <button
+                  aria-label="Image suivante"
+                  className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur"
+                  onClick={() => setIndexImage((i) => (i + 1) % images.length)}
+                  type="button"
+                >
+                  <Icon className="h-7 w-7" name="right" />
+                </button>
+              </>
+            )}
+            <button
+              aria-label={estFavori ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              className={`absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full backdrop-blur transition active:scale-[0.95] ${estFavori ? 'bg-coral text-white' : 'bg-black/30 text-white'}`}
+              disabled={favoriEnCours}
+              onClick={() => void basculerFavori()}
+              type="button"
+            >
               <Icon className="h-8 w-8" name="heart" />
             </button>
             <span className="absolute bottom-4 right-4 rounded-full bg-black/50 px-3 py-1 text-xs font-bold text-white">
-              {images.length > 0 ? `1/${images.length}` : '0/0'}
+              {images.length > 0 ? `${indexImage + 1}/${images.length}` : '0/0'}
             </span>
           </section>
 
           <section className="bg-white px-5 py-7">
-            <h2 className="m-0 text-[32px] font-black leading-tight tracking-normal text-ink">{nom}</h2>
+            <h2 className="m-0 flex items-center gap-2 text-[22px] font-black leading-tight tracking-normal text-ink">
+              {nom}
+              {prestataire.verifie && <Badge variante="kwiik">Verifie</Badge>}
+            </h2>
             <p className="m-0 mt-4 flex items-start gap-2 text-base leading-6 text-muted">
               <Icon className="mt-0.5 h-5 w-5 flex-none" name="location" />
               <span className="underline decoration-muted/50 underline-offset-4">{lieu}</span>
@@ -475,14 +585,28 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
                 </span>
               ))}
             </div>
-            <button className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-lg border-2 border-ink bg-white text-base font-bold text-ink" type="button">
-              <Icon className="h-5 w-5" name="gift" />
-              Offrir
-            </button>
+            <div className="mt-7 grid grid-cols-2 gap-3">
+              <button
+                className="flex h-14 items-center justify-center gap-2 rounded-lg bg-ink text-base font-bold text-white disabled:bg-[#B8B4AA]"
+                disabled={contactEnCours}
+                onClick={() => void contacter()}
+                type="button"
+              >
+                {contactEnCours ? 'Ouverture...' : 'Contacter'}
+              </button>
+              <button
+                className="flex h-14 items-center justify-center gap-2 rounded-lg border-2 border-ink bg-white text-base font-bold text-ink"
+                onClick={() => setOngletActif('offrir')}
+                type="button"
+              >
+                <Icon className="h-5 w-5" name="gift" />
+                Offrir
+              </button>
+            </div>
           </section>
 
           <section className="px-5 py-7">
-            <h2 className="m-0 text-[26px] font-black tracking-normal text-ink">Resultats pour {categoriePrincipale}</h2>
+            <h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Resultats pour {categoriePrincipale}</h2>
             <p className="m-0 mt-2 text-sm leading-6 text-muted">Choisissez une prestation, puis un creneau disponible pour envoyer votre demande de reservation.</p>
           </section>
 
@@ -503,10 +627,21 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
                       {prestation.photoUrl && <img alt={prestation.titre} className="h-20 w-20 flex-none rounded-lg object-cover" src={imageUrl(prestation.photoUrl)} />}
                       <div className="min-w-0 flex-1">
                         <h4 className="m-0 text-lg font-semibold leading-7 text-ink">{prestation.titre}</h4>
-                        {prestation.description && <p className="m-0 mt-2 line-clamp-2 text-base leading-7 text-muted">{prestation.description}</p>}
-                        <button className="mt-2 flex items-center gap-1 text-base font-semibold text-muted" type="button">
-                          Plus de details <Icon className="h-4 w-4" name="down" />
-                        </button>
+                        {prestation.description && (
+                          <p className={`m-0 mt-2 text-base leading-7 text-muted ${prestationDetaillee === prestation.id ? '' : 'line-clamp-2'}`}>
+                            {prestation.description}
+                          </p>
+                        )}
+                        {prestation.description && prestation.description.length > 80 && (
+                          <button
+                            className="mt-2 flex items-center gap-1 text-base font-semibold text-muted"
+                            onClick={() => setPrestationDetaillee((id) => (id === prestation.id ? '' : prestation.id))}
+                            type="button"
+                          >
+                            {prestationDetaillee === prestation.id ? 'Moins de details' : 'Plus de details'}
+                            <Icon className={`h-4 w-4 transition-transform ${prestationDetaillee === prestation.id ? 'rotate-180' : ''}`} name="down" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="mt-5 flex items-center justify-between gap-4">
@@ -534,7 +669,7 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
           </section>
 
           <section className="px-5 py-7">
-            <h2 className="m-0 text-[26px] font-black tracking-normal text-ink">Creneaux libres</h2>
+            <h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Creneaux libres</h2>
             {!prestationSelectionnee && <p className="m-0 mt-2 text-sm leading-6 text-muted">Selectionnez d'abord une prestation pour choisir votre horaire.</p>}
             {prestationSelectionnee && prestataire.creneaux.length === 0 && <p className="m-0 mt-4 rounded-lg bg-white p-4 text-sm text-muted shadow-sm">Aucun creneau libre pour le moment.</p>}
             {prestationSelectionnee && prestataire.creneaux.length > 0 && (
@@ -589,9 +724,9 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
 
       {ongletActif === 'offrir' && (
         <section className="px-5 py-8">
-          <h2 className="m-0 text-[34px] font-black tracking-normal text-ink">Offrir</h2>
+          <h2 className="m-0 text-[22px] font-black tracking-normal text-ink">Offrir</h2>
           <p className="m-0 mt-4 text-xl leading-9 text-muted">Selectionnez une prestation a offrir. Les cartes cadeaux KWIIK seront activees lorsque le paiement en ligne sera pret.</p>
-          <h3 className="m-0 mt-10 text-[28px] font-black tracking-normal text-ink">Toutes les cartes cadeaux</h3>
+          <h3 className="m-0 mt-10 text-[18px] font-black tracking-normal text-ink">Toutes les cartes cadeaux</h3>
           <article className="mt-5 flex items-center justify-between gap-4 border-y border-line bg-white px-5 py-7">
             <div>
               <h4 className="m-0 text-xl font-semibold leading-8 text-ink">Carte cadeau KWIIK</h4>
@@ -616,7 +751,7 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
 
       {ongletActif === 'avis' && (
         <section className="px-5 py-8">
-          <h2 className="m-0 text-[34px] font-black tracking-normal text-ink">Avis</h2>
+          <h2 className="m-0 text-[22px] font-black tracking-normal text-ink">Avis</h2>
           {!avisDisponibles && <p className="m-0 mt-5 rounded-lg bg-white p-5 text-sm text-muted shadow-sm">Avis indisponibles pour le moment.</p>}
           {avisDisponibles && (
             <>
@@ -624,10 +759,8 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
                 <div className="mt-6 overflow-hidden rounded-lg border border-line bg-white">
                   <div className="grid grid-cols-[104px_1fr]">
                     <div className="flex items-center justify-center bg-ink px-4 py-8 text-4xl font-black text-white">{note(noteMoyenne)}</div>
-                    <div className="px-5 py-5">
-                      <p className="m-0 text-lg leading-8 text-muted">Accueil <span className="font-bold text-ink">{note(noteMoyenne)} *</span></p>
-                      <p className="m-0 text-lg leading-8 text-muted">Qualite <span className="font-bold text-ink">{note(noteMoyenne)} *</span></p>
-                      <p className="m-0 mt-3 text-base font-semibold text-ink">{nombreAvis} client{nombreAvis > 1 ? 's' : ''} ont donne leur avis</p>
+                    <div className="flex items-center px-5 py-5">
+                      <p className="m-0 text-base font-semibold text-ink">{nombreAvis} client{nombreAvis > 1 ? 's' : ''} ont donne leur avis</p>
                     </div>
                   </div>
                 </div>
@@ -652,14 +785,10 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
       {ongletActif === 'apropos' && (
         <section className="pb-10">
           <div className="px-5 py-8">
-            <h2 className="m-0 text-[30px] font-black tracking-normal text-ink">Ou se situe ce prestataire ?</h2>
+            <h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Ou se situe ce prestataire ?</h2>
             <p className="m-0 mt-4 flex items-start gap-2 text-lg leading-7 text-muted"><Icon className="mt-0.5 h-6 w-6 flex-none" name="location" /><span className="underline decoration-muted/50 underline-offset-4">{lieu}</span></p>
           </div>
-          <div className="relative h-[210px] overflow-hidden bg-soft-map">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(24,95,165,0.12)_0_25%,transparent_25%_50%,rgba(63,157,135,0.13)_50%_75%,transparent_75%)] bg-[length:120px_120px] blur-[1px]" />
-            <button className="absolute left-1/2 top-1/2 flex h-14 -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-xl bg-ink px-6 text-base font-bold text-white" type="button"><Icon className="h-5 w-5" name="map" />Afficher la carte</button>
-          </div>
-          <section className="px-5 py-8"><h2 className="m-0 text-[30px] font-black tracking-normal text-ink">Horaires d'ouverture</h2></section>
+          <section className="px-5 py-8"><h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Horaires d'ouverture</h2></section>
           <div className="border-y border-line bg-white px-5">
             {horaires.map((jour) => (
               <div className="flex items-center justify-between border-b border-line py-5 last:border-b-0" key={jour.nom}>
@@ -668,13 +797,13 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
               </div>
             ))}
           </div>
-          <section className="px-5 py-8"><h2 className="m-0 text-[30px] font-black tracking-normal text-ink">Informations</h2></section>
+          <section className="px-5 py-8"><h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Informations</h2></section>
           <div className="border-y border-line bg-white">
             <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-5"><h3 className="m-0 text-xl font-black tracking-normal text-ink">A-propos</h3><Icon className="h-5 w-5 text-ink" name="down" /></div>
             <p className="m-0 px-5 py-6 text-lg leading-8 text-muted">{prestataire.description || "Ce prestataire n'a pas encore ajoute de description detaillee."}</p>
           </div>
           <section className="px-5 py-8">
-            <h2 className="m-0 text-[30px] font-black tracking-normal text-ink">Dans cet etablissement</h2>
+            <h2 className="m-0 text-[19px] font-black tracking-normal text-ink">Dans cet etablissement</h2>
             <div className="mt-5 flex flex-wrap gap-3">
               {prestataire.categories.map((categorie) => <span className="rounded-full border border-line bg-white px-5 py-3 text-base font-semibold text-ink" key={categorie.id}>{categorie.nom} {prestataire.ville}</span>)}
             </div>
@@ -695,14 +824,78 @@ export function Vitrine({ prestataireId, onRetour }: VitrineProps) {
               <p className="m-0">Choisissez une prestation et un creneau pour reserver.</p>
             )}
           </div>
-          <button
-            className={`h-12 w-full rounded-xl text-base font-black text-white shadow-[0_12px_24px_rgba(26,26,24,0.16)] transition ${reservationPossible ? 'bg-ink active:scale-[0.98]' : 'bg-[#B9B4AA]'}`}
-            disabled={!reservationPossible}
-            onClick={reserver}
-            type="button"
-          >
-            {reservationEnCours ? 'Reservation...' : 'Reserver maintenant'}
-          </button>
+
+          {paiement ? (
+            <div className="rounded-xl border border-line bg-surface-1 p-3">
+              <p className="m-0 text-xs font-bold text-ink">
+                Paiement en ligne :{' '}
+                {paiement.statut === 'reussi' ? (
+                  <span className="text-success-strong">réussi ✓</span>
+                ) : paiement.statut === 'echoue' ? (
+                  <span className="text-danger-strong">échoué</span>
+                ) : (
+                  <span className="text-warning-strong">en attente</span>
+                )}
+              </p>
+              {paiement.statut === 'en_attente' && (
+                <button
+                  className="mt-2 h-11 w-full rounded-xl bg-kwiik text-sm font-black text-white disabled:bg-[#B8B4AA]"
+                  disabled={simulationEnCours}
+                  onClick={() => void simulerPaiement()}
+                  type="button"
+                >
+                  {simulationEnCours ? 'Paiement en cours...' : 'Payer maintenant (simulation)'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <button
+                  className={`h-10 rounded-xl text-xs font-black transition ${modePaiement === 'a_la_livraison' ? 'bg-ink text-white' : 'bg-surface-1 text-muted'}`}
+                  onClick={() => setModePaiement('a_la_livraison')}
+                  type="button"
+                >
+                  À la livraison
+                </button>
+                <button
+                  className={`h-10 rounded-xl text-xs font-black transition ${modePaiement === 'en_ligne' ? 'bg-ink text-white' : 'bg-surface-1 text-muted'}`}
+                  onClick={() => setModePaiement('en_ligne')}
+                  type="button"
+                >
+                  Payer en ligne
+                </button>
+              </div>
+
+              {modePaiement === 'en_ligne' && (
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <button
+                    className={`h-9 rounded-xl border text-xs font-bold transition ${operateur === 'orange_money' ? 'border-kwiik bg-kwiik-light text-kwiik-dark' : 'border-line bg-white text-muted'}`}
+                    onClick={() => setOperateur('orange_money')}
+                    type="button"
+                  >
+                    Orange Money
+                  </button>
+                  <button
+                    className={`h-9 rounded-xl border text-xs font-bold transition ${operateur === 'mtn_momo' ? 'border-kwiik bg-kwiik-light text-kwiik-dark' : 'border-line bg-white text-muted'}`}
+                    onClick={() => setOperateur('mtn_momo')}
+                    type="button"
+                  >
+                    MTN MoMo
+                  </button>
+                </div>
+              )}
+
+              <button
+                className={`h-12 w-full rounded-xl text-base font-black text-white shadow-[0_12px_24px_rgba(26,26,24,0.16)] transition ${reservationPossible ? 'bg-kwiik active:scale-[0.98]' : 'bg-[#B9B4AA]'}`}
+                disabled={!reservationPossible}
+                onClick={reserver}
+                type="button"
+              >
+                {reservationEnCours ? 'Reservation...' : 'Reserver maintenant'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </section>

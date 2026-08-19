@@ -24,3 +24,30 @@ export class CreerPrestationDto {
   @Min(1, { message: 'La duree doit etre d au moins 1 minute.' })
   dureeMin: number;
 }
+
+export class ModifierPrestationDto {
+  @IsString()
+  @MinLength(2, { message: 'Le titre est requis.' })
+  @IsOptional()
+  titre?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  photoUrl?: string;
+
+  @Type(() => Number)
+  @IsInt({ message: 'Le prix doit etre un nombre entier en FCFA.' })
+  @Min(0, { message: 'Le prix ne peut pas etre negatif.' })
+  @IsOptional()
+  prix?: number;
+
+  @Type(() => Number)
+  @IsInt({ message: 'La duree doit etre un nombre entier en minutes.' })
+  @Min(1, { message: 'La duree doit etre d au moins 1 minute.' })
+  @IsOptional()
+  dureeMin?: number;
+}

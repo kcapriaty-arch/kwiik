@@ -1,23 +1,30 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Accueil } from './Accueil';
-import { Auth, type ResultatConnexion } from './Auth';
-import { DevenirPrestataire } from './DevenirPrestataire';
+import { Auth, type IntentionConnexion, type ResultatConnexion } from './Auth';
 import { Decouverte } from './Decouverte';
+import { MesFavoris } from './MesFavoris';
 import { MesReservations } from './MesReservations';
 import { MonProfilPrestataire } from './MonProfilPrestataire';
 import { Messages } from './Messages';
+import { Notifications } from './notifications/Notifications';
+import { ParametresCompte } from './ParametresCompte';
+import { Bienvenue } from './onboarding/Bienvenue';
+import { ChoixRole } from './onboarding/ChoixRole';
+import { OnboardingClient } from './onboarding/OnboardingClient';
+import { OnboardingPrestataire } from './onboarding/OnboardingPrestataire';
 import {
   TableauBordPrestataire,
   type OngletPrestataire,
 } from './TableauBordPrestataire';
+import { api, urlImage } from './api';
 import { useSession } from './session';
 import { initialesDepuisNom } from './ui';
 import { Vitrine } from './Vitrine';
 
 type Mode = 'client' | 'pro';
-type Vue = 'accueil' | 'decouverte' | 'reservations' | 'messages' | 'prestataire' | 'devenir-prestataire' | 'profil';
-type OngletPro = 'tableau' | 'demandes' | 'prestations' | 'creneaux' | 'profil';
-type IconeNavigation = 'home' | 'search' | 'calendar' | 'briefcase' | 'user' | 'plus' | 'logout' | 'message' | 'list' | 'clock';
+type Vue = 'accueil' | 'decouverte' | 'reservations' | 'messages' | 'prestataire' | 'devenir-prestataire' | 'profil' | 'favoris' | 'notifications' | 'compte';
+type OngletPro = 'tableau' | 'demandes' | 'prestations' | 'creneaux' | 'messages' | 'profil';
+type IconeNavigation = 'home' | 'search' | 'calendar' | 'briefcase' | 'user' | 'plus' | 'logout' | 'message' | 'list' | 'clock' | 'heart';
 
 interface RechercheDecouverte {
   nomCategorie: string;
@@ -54,6 +61,7 @@ const ongletsPro: OngletProNavigation[] = [
   { onglet: 'demandes', libelle: 'Demandes', icone: 'list' },
   { onglet: 'prestations', libelle: 'Prestations', icone: 'plus' },
   { onglet: 'creneaux', libelle: 'Creneaux', icone: 'clock' },
+  { onglet: 'messages', libelle: 'Messages', icone: 'message' },
   { onglet: 'profil', libelle: 'Profil', icone: 'user' },
 ];
 
@@ -162,6 +170,14 @@ function Icone({ nom, className = '' }: IconeProps) {
     );
   }
 
+  if (nom === 'heart') {
+    return (
+      <svg {...props}>
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...props}>
       <circle cx="12" cy="8" r="4" />
@@ -192,6 +208,47 @@ function App() {
     ville: '',
   });
   const [prestataireSelectionne, setPrestataireSelectionne] = useState<string | null>(null);
+  const [conversationAOuvrir, setConversationAOuvrir] = useState<{ id: string; autrePartie: string } | null>(null);
+  const [etapePreAuth, setEtapePreAuth] = useState<'bienvenue' | 'choixRole' | 'auth'>('bienvenue');
+  const [intentionChoisie, setIntentionChoisie] = useState<IntentionConnexion | null>(null);
+  const [statsProfil, setStatsProfil] = useState<{ reservations: number; favoris: number; avis: number }>({
+    reservations: 0,
+    favoris: 0,
+    avis: 0,
+  });
+
+  useEffect(() => {
+    if (!utilisateur || mode !== 'client' || vue !== 'profil') {
+      return;
+    }
+
+    let annule = false;
+
+    async function chargerStats(): Promise<void> {
+      try {
+        const [reservationsRes, favorisRes] = await Promise.all([
+          api.get<{ avis?: unknown }[]>('/reservations/mes-reservations'),
+          api.get<unknown[]>('/favoris'),
+        ]);
+        if (annule) {
+          return;
+        }
+        setStatsProfil({
+          reservations: reservationsRes.data.length,
+          favoris: favorisRes.data.length,
+          avis: reservationsRes.data.filter((r) => Boolean(r.avis)).length,
+        });
+      } catch {
+        // Echec silencieux : les compteurs restent a 0 plutot que de bloquer l'ecran.
+      }
+    }
+
+    void chargerStats();
+
+    return () => {
+      annule = true;
+    };
+  }, [utilisateur, mode, vue]);
 
   function reinitialiserNavigation(): void {
     setMode('client');
@@ -203,6 +260,8 @@ function App() {
 
   function gererDeconnexion(): void {
     reinitialiserNavigation();
+    setEtapePreAuth('bienvenue');
+    setIntentionChoisie(null);
     deconnexion();
   }
 
@@ -220,7 +279,14 @@ function App() {
     setMode('pro');
     setOngletPro(nouvelOnglet);
     setPrestataireSelectionne(null);
-    setVue(nouvelOnglet === 'profil' ? 'profil' : 'prestataire');
+
+    if (nouvelOnglet === 'profil') {
+      setVue('profil');
+    } else if (nouvelOnglet === 'messages') {
+      setVue('messages');
+    } else {
+      setVue('prestataire');
+    }
   }
 
   function activerModePro(): void {
@@ -277,23 +343,74 @@ function App() {
 
   function afficherProfil() {
     const nomAffiche = utilisateur?.nom?.trim() || 'Utilisateur KWIIK';
-    const initiales = initialesDepuisNom(utilisateur?.nom || utilisateur?.telephone, 'KW');
+    const initiales = initialesDepuisNom(utilisateur?.nom, 'KW');
+    const membreDepuis = utilisateur?.creeLe
+      ? new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(utilisateur.creeLe))
+      : '';
+
+    function ligneMenu(icone: IconeNavigation, titre: string, sousTitre: string, onClick: () => void, key?: string) {
+      return (
+        <button
+          className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left transition active:scale-[0.99]"
+          key={key}
+          onClick={onClick}
+          type="button"
+        >
+          <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-kwiik-light text-kwiik">
+            <Icone className="h-5 w-5" nom={icone} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold text-ink">{titre}</span>
+            <span className="block truncate text-xs text-muted">{sousTitre}</span>
+          </span>
+          <span className="flex-none text-muted">&gt;</span>
+        </button>
+      );
+    }
 
     return (
-      <section className="min-h-full bg-cream text-left">
-        <div className="bg-coral px-5 py-8 text-center text-white">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[22px] bg-white/18 text-xl font-black text-white ring-1 ring-white/25">
-            {initiales}
+      <section className="min-h-full bg-surface-0 text-left">
+        <div className="bg-kwiik px-5 pb-8 pt-7 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 flex-none items-center justify-center overflow-hidden rounded-2xl bg-white/15 text-lg font-black text-white ring-2 ring-lime">
+              {utilisateur?.photoProfilUrl ? (
+                <img alt="" className="h-full w-full object-cover" src={urlImage(utilisateur.photoProfilUrl)} />
+              ) : (
+                initiales
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="m-0 truncate text-lg font-black text-white">{nomAffiche}</h2>
+              {membreDepuis && <p className="m-0 mt-0.5 text-xs font-medium text-white/70">Membre depuis {membreDepuis}</p>}
+              {utilisateur?.emailConfirme && (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-lime">
+                  ✓ Email confirmé
+                </span>
+              )}
+            </div>
           </div>
-          <h2 className="m-0 text-lg font-bold text-white">{nomAffiche}</h2>
-          <p className="m-0 mt-1 text-xs font-semibold text-white/75">{utilisateur?.telephone}</p>
         </div>
 
-        <div className="px-5 py-4">
+        <div className="-mt-5 grid grid-cols-3 gap-2 px-5">
+          <div className="rounded-2xl bg-white p-3 text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)]">
+            <p className="m-0 text-lg font-black text-ink">{statsProfil.reservations}</p>
+            <p className="m-0 text-[11px] text-muted">Réservations</p>
+          </div>
+          <div className="rounded-2xl bg-white p-3 text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)]">
+            <p className="m-0 text-lg font-black text-ink">{statsProfil.favoris}</p>
+            <p className="m-0 text-[11px] text-muted">Favoris</p>
+          </div>
+          <div className="rounded-2xl bg-white p-3 text-center shadow-[0_4px_14px_rgba(0,0,0,0.06)]">
+            <p className="m-0 text-lg font-black text-ink">{statsProfil.avis}</p>
+            <p className="m-0 text-[11px] text-muted">Avis donnés</p>
+          </div>
+        </div>
+
+        <div className="px-5 py-5">
           <p className="m-0 mb-2 text-xs font-bold text-muted">Vous utilisez KWIIK en tant que :</p>
-          <div className="grid grid-cols-2 gap-2 rounded-[18px] bg-white p-1 shadow-[0_10px_25px_rgba(26,26,24,0.06)]">
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1 shadow-[0_10px_25px_rgba(26,26,24,0.06)]">
             <button
-              className={`h-10 rounded-[14px] text-sm font-bold transition ${mode === 'client' ? 'bg-ink text-white' : 'text-muted'}`}
+              className={`h-10 rounded-xl text-sm font-bold transition ${mode === 'client' ? 'bg-ink text-white' : 'text-muted'}`}
               onClick={() => {
                 setMode('client');
                 setVue('profil');
@@ -304,7 +421,7 @@ function App() {
               Client
             </button>
             <button
-              className={`h-10 rounded-[14px] text-sm font-bold transition ${mode === 'pro' ? 'bg-ink text-white' : 'text-muted'}`}
+              className={`h-10 rounded-xl text-sm font-bold transition ${mode === 'pro' ? 'bg-ink text-white' : 'text-muted'}`}
               onClick={activerModePro}
               type="button"
             >
@@ -318,51 +435,26 @@ function App() {
           )}
         </div>
 
-        <div className="py-2">
+        <div className="grid gap-2 px-5 pb-2">
           {mode === 'client' ? (
-            <button
-              className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white"
-              onClick={() => naviguerClient('reservations')}
-              type="button"
-            >
-              <Icone className="h-5 w-5 text-muted" nom="calendar" />
-              <span className="flex-1">Mes rendez-vous</span>
-              <span className="text-muted">&gt;</span>
-            </button>
+            <>
+              {ligneMenu('calendar', 'Mes rendez-vous', 'Réservations à venir et historique', () => naviguerClient('reservations'), 'rdv')}
+              {ligneMenu('heart', 'Mes favoris', `${statsProfil.favoris} prestataire${statsProfil.favoris > 1 ? 's' : ''}`, () => naviguerClient('favoris'), 'favoris')}
+            </>
           ) : (
             <>
-              <button className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white" onClick={() => naviguerPro('tableau')} type="button">
-                <Icone className="h-5 w-5 text-muted" nom="briefcase" />
-                <span className="flex-1">Tableau de bord</span>
-                <span className="text-muted">&gt;</span>
-              </button>
-              <button className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white" onClick={() => naviguerPro('prestations')} type="button">
-                <Icone className="h-5 w-5 text-muted" nom="plus" />
-                <span className="flex-1">Mes prestations</span>
-                <span className="text-muted">&gt;</span>
-              </button>
-              <button className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white" onClick={() => naviguerPro('creneaux')} type="button">
-                <Icone className="h-5 w-5 text-muted" nom="clock" />
-                <span className="flex-1">Mes creneaux</span>
-                <span className="text-muted">&gt;</span>
-              </button>
+              {ligneMenu('briefcase', 'Tableau de bord', 'Demandes et activité', () => naviguerPro('tableau'), 'tableau')}
+              {ligneMenu('plus', 'Mes prestations', 'Catalogue de services', () => naviguerPro('prestations'), 'prestations')}
+              {ligneMenu('clock', 'Mes créneaux', 'Disponibilités', () => naviguerPro('creneaux'), 'creneaux')}
             </>
           )}
 
-          {!estPrestataire && (
-            <button
-              className="flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-white"
-              onClick={() => naviguerClient('devenir-prestataire')}
-              type="button"
-            >
-              <Icone className="h-5 w-5 text-coral-dark" nom="plus" />
-              <span className="flex-1">Devenir prestataire</span>
-              <span className="text-muted">&gt;</span>
-            </button>
-          )}
+          {ligneMenu('user', 'Paramètres du compte', 'Téléphone, email, photo', () => setVue('compte'), 'compte')}
+
+          {!estPrestataire && ligneMenu('plus', 'Devenir prestataire', 'Créer votre vitrine', () => naviguerClient('devenir-prestataire'), 'devenir-prestataire')}
 
           <button
-            className="mt-2 flex w-full items-center gap-3 px-5 py-4 text-left text-sm font-bold text-danger-strong transition hover:bg-danger-soft"
+            className="mt-2 flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left text-sm font-bold text-danger-strong transition hover:bg-danger-soft"
             onClick={gererDeconnexion}
             type="button"
           >
@@ -375,9 +467,21 @@ function App() {
   }
 
   const contenu = prestataireSelectionne ? (
-    <Vitrine onRetour={() => setPrestataireSelectionne(null)} prestataireId={prestataireSelectionne} />
+    <Vitrine
+      onContacter={(conversation) => {
+        setConversationAOuvrir(conversation);
+        setPrestataireSelectionne(null);
+        naviguerClient('messages');
+      }}
+      onRetour={() => setPrestataireSelectionne(null)}
+      prestataireId={prestataireSelectionne}
+    />
   ) : vue === 'devenir-prestataire' ? (
-    <DevenirPrestataire onCree={() => void apresCreationPrestataire()} />
+    <OnboardingPrestataire onTermine={() => void apresCreationPrestataire()} />
+  ) : vue === 'notifications' ? (
+    <Notifications onRetour={() => naviguerClient('accueil')} />
+  ) : vue === 'compte' ? (
+    <ParametresCompte onRetour={() => setVue('profil')} />
   ) : mode === 'pro' && vue === 'prestataire' ? (
     <TableauBordPrestataire masquerOnglets={ongletPro !== 'tableau'} ongletInitial={ongletProVersOngletPrestataire(ongletPro)} />
   ) : mode === 'pro' && vue === 'profil' ? (
@@ -385,11 +489,22 @@ function App() {
   ) : vue === 'profil' ? (
     afficherProfil()
   ) : vue === 'accueil' ? (
-    <Accueil onDevenirPrestataire={() => naviguerClient('devenir-prestataire')} onRechercher={rechercher} />
+    <Accueil
+      onDevenirPrestataire={() => naviguerClient('devenir-prestataire')}
+      onOuvrirNotifications={() => naviguerClient('notifications')}
+      onRechercher={rechercher}
+      onSelectionnerPrestataire={setPrestataireSelectionne}
+    />
   ) : vue === 'reservations' ? (
-    <MesReservations />
+    <MesReservations onOuvrirNotifications={() => naviguerClient('notifications')} />
+  ) : vue === 'favoris' ? (
+    <MesFavoris onSelectionner={setPrestataireSelectionne} />
   ) : vue === 'messages' ? (
-    <Messages />
+    <Messages
+      conversationInitiale={conversationAOuvrir}
+      onConversationInitialeConsommee={() => setConversationAOuvrir(null)}
+      onOuvrirNotifications={() => naviguerClient('notifications')}
+    />
   ) : (
     <Decouverte
       categorieInitiale={rechercheDecouverte.nomCategorie}
@@ -412,7 +527,44 @@ function App() {
     return (
       <div className="min-h-screen bg-surface-0 px-0 py-0 sm:px-3 sm:py-6">
         <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col overflow-hidden rounded-none border-line bg-surface-2 shadow-[0_12px_40px_rgba(0,0,0,0.10)] sm:min-h-[720px] sm:rounded-[30px] sm:border">
-          <Auth onConnecte={(resultat) => void gererConnexion(resultat)} />
+          {etapePreAuth === 'bienvenue' ? (
+            <Bienvenue onSuivant={() => setEtapePreAuth('choixRole')} />
+          ) : etapePreAuth === 'choixRole' ? (
+            <ChoixRole
+              onChoisir={(intention) => {
+                setIntentionChoisie(intention);
+                setEtapePreAuth('auth');
+              }}
+              onRetour={() => setEtapePreAuth('bienvenue')}
+            />
+          ) : (
+            <Auth intention={intentionChoisie ?? 'client'} onConnecte={(resultat) => void gererConnexion(resultat)} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const parcours = intentionChoisie ?? (estPrestataire ? 'prestataire' : 'client');
+
+  if (parcours === 'client' && !utilisateur.identiteComplete) {
+    return (
+      <div className="min-h-screen bg-surface-0 px-0 py-0 sm:px-3 sm:py-6">
+        <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col overflow-hidden rounded-none border-line bg-surface-2 shadow-[0_12px_40px_rgba(0,0,0,0.10)] sm:min-h-[720px] sm:rounded-[30px] sm:border">
+          <OnboardingClient onTermine={async () => { await recharger(); }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    parcours === 'prestataire' &&
+    (!utilisateur.identiteComplete || !estPrestataire || !utilisateur.prestataireOnboardingComplete)
+  ) {
+    return (
+      <div className="min-h-screen bg-surface-0 px-0 py-0 sm:px-3 sm:py-6">
+        <div className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col overflow-hidden rounded-none border-line bg-surface-2 shadow-[0_12px_40px_rgba(0,0,0,0.10)] sm:min-h-[720px] sm:rounded-[30px] sm:border">
+          <OnboardingPrestataire onTermine={() => void apresCreationPrestataire()} />
         </div>
       </div>
     );
@@ -424,7 +576,7 @@ function App() {
         <main className="flex-1 overflow-y-auto bg-cream">{contenu}</main>
 
         {!prestataireSelectionne && (
-          <nav className="grid grid-cols-5 border-t border-line bg-white/95 px-2 py-1.5 backdrop-blur">
+          <nav className={`grid border-t border-line bg-white/95 px-2 py-1.5 backdrop-blur ${mode === 'client' ? 'grid-cols-5' : 'grid-cols-6'}`}>
             {mode === 'client'
               ? ongletsClient.map((onglet: OngletClientNavigation) => {
                   const actif = vue === onglet.vue;
@@ -439,7 +591,7 @@ function App() {
                       type="button"
                     >
                       <Icone className="h-5 w-5" nom={onglet.icone} />
-                      <span className="truncate">{onglet.libelle}</span>
+                      <span className="w-full truncate text-center">{onglet.libelle}</span>
                     </button>
                   );
                 })
@@ -456,7 +608,7 @@ function App() {
                       type="button"
                     >
                       <Icone className="h-5 w-5" nom={onglet.icone} />
-                      <span className="truncate">{onglet.libelle}</span>
+                      <span className="w-full truncate text-center">{onglet.libelle}</span>
                     </button>
                   );
                 })}

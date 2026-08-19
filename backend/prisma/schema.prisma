@@ -53,16 +53,56 @@ enum Operateur {
   mtn_momo
 }
 
+enum ModeService {
+  adresse_fixe
+  a_domicile
+  en_ligne
+}
+
+enum TypeNotification {
+  reservation
+  message
+  systeme
+}
+
 model Utilisateur {
   id        String   @id @default(uuid())
-  telephone String   @unique
   nom       String
+  email     String?  @unique
   role      Role     @default(client)
   langue    Langue   @default(fr)
   creeLe    DateTime @default(now())
 
-  prestataire  Prestataire?
-  reservations Reservation[]
+  motDePasseHash String?
+  appleId        String? @unique
+  emailConfirme  Boolean @default(false)
+
+  telephone      String? @unique
+  photoProfilUrl String?
+  cniRectoUrl    String?
+  cniVersoUrl    String?
+
+  prestataire         Prestataire?
+  reservations        Reservation[]
+  favoris             Favori[]
+  notifications       Notification[]
+  conversationsClient Conversation[]
+  messagesEnvoyes     Message[]
+}
+
+model Notification {
+  id            String            @id @default(uuid())
+  utilisateurId String
+  utilisateur   Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  type          TypeNotification
+  titre         String
+  corps         String
+  lu            Boolean           @default(false)
+  lienType      String?
+  lienId        String?
+  creeLe        DateTime          @default(now())
+
+  @@index([utilisateurId])
 }
 
 model Domaine {
@@ -73,11 +113,12 @@ model Domaine {
 }
 
 model Categorie {
-  id           String        @id @default(uuid())
-  nom          String        @unique
-  domaineId    String
-  domaine      Domaine       @relation(fields: [domaineId], references: [id], onDelete: Cascade)
-  prestataires Prestataire[]
+  id             String        @id @default(uuid())
+  nom            String        @unique
+  domaineId      String
+  domaine        Domaine       @relation(fields: [domaineId], references: [id], onDelete: Cascade)
+  licenceRequise Boolean       @default(false)
+  prestataires   Prestataire[]
 }
 
 model Prestataire {
@@ -92,6 +133,10 @@ model Prestataire {
   description         String?
   photoLieuUrl        String?
   photosBoutique      String[]    @default([])
+  modeService         ModeService?
+  licenceUrl          String?
+  proposeLocalAVendreOuLouer Boolean @default(false)
+  factureElectriciteUrl      String?
   rdvGratuitsRestants Int         @default(10)
   lienPartage         String?     @unique
   verifie             Boolean     @default(false)
@@ -99,11 +144,49 @@ model Prestataire {
   abonnementId String?
   abonnement   Abonnement? @relation(fields: [abonnementId], references: [id])
 
-  prestations Prestation[]
-  creneaux    Creneau[]
-  profilPrive ProfilPrestatairePrive?
+  prestations   Prestation[]
+  creneaux      Creneau[]
+  profilPrive   ProfilPrestatairePrive?
+  favoris       Favori[]
+  conversations Conversation[]
 
   creeLe DateTime @default(now())
+}
+
+model Conversation {
+  id            String      @id @default(uuid())
+  clientId      String
+  client        Utilisateur @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  prestataireId String
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  creeLe        DateTime    @default(now())
+
+  @@unique([clientId, prestataireId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  expediteurId   String
+  expediteur     Utilisateur  @relation(fields: [expediteurId], references: [id])
+  contenu        String
+  lu             Boolean      @default(false)
+  creeLe         DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+model Favori {
+  id            String      @id @default(uuid())
+  utilisateurId String
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  prestataireId String
+  prestataire   Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+  creeLe        DateTime    @default(now())
+
+  @@unique([utilisateurId, prestataireId])
 }
 
 model ProfilPrestatairePrive {
@@ -202,14 +285,14 @@ model Avis {
   creeLe DateTime @default(now())
 }
 
-model CodeVerification {
+model CodeConfirmationEmail {
   id         String   @id @default(uuid())
-  telephone  String
+  email      String
   codeHache  String
   expireLe   DateTime
   tentatives Int      @default(0)
   utilise    Boolean  @default(false)
   creeLe     DateTime @default(now())
 
-  @@index([telephone])
+  @@index([email])
 }

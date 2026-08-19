@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from './api';
-import { EtatVide } from './ui';
+import { api, urlImage } from './api';
+import { useNotificationsNonLues } from './notifications/useNotificationsNonLues';
+import { EtatVide, SquelettesCartes } from './ui';
+
+interface MesReservationsProps {
+  onOuvrirNotifications?: () => void;
+}
 
 type StatutReservation =
   | 'en_attente'
@@ -63,8 +68,6 @@ interface StatutUi {
   libelle: string;
   classe: string;
 }
-
-const urlBackend = 'http://localhost:3000';
 
 const formatteurFcfa: Intl.NumberFormat = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 0,
@@ -268,10 +271,6 @@ function libellerLieu(reservation: Reservation): string {
   return morceaux.length > 0 ? morceaux.join(', ') : 'Lieu à confirmer avec le prestataire';
 }
 
-function urlImageBackend(url: string): string {
-  return `${urlBackend}${url}`;
-}
-
 function estReservationAVenir(reservation: Reservation): boolean {
   if (reservation.statut === 'annulee' || reservation.statut === 'validee' || reservation.statut === 'payee_cloturee') {
     return false;
@@ -302,7 +301,8 @@ function grouperParDate(reservations: Reservation[]): GroupeReservations[] {
   return Array.from(groupes.values());
 }
 
-export function MesReservations() {
+export function MesReservations({ onOuvrirNotifications }: MesReservationsProps) {
+  const notificationsNonLues = useNotificationsNonLues();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [vueActive, setVueActive] = useState<VueReservations>('a_venir');
   const [chargement, setChargement] = useState<boolean>(true);
@@ -358,36 +358,26 @@ export function MesReservations() {
   }
 
   return (
-    <section className="min-h-full bg-surface-2 text-left text-ink">
-      <header className="bg-white px-5 pb-5 pt-5">
-        <div className="mb-7 flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-muted">FR</div>
-          <div className="text-center text-[22px] font-black tracking-[0.24em] text-ink">KWIIK</div>
-          <button
-            aria-label="Notifications"
-            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-white"
-            type="button"
-          >
-            <BellIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="rounded-[24px] bg-surface-1 p-4">
-          <p className="m-0 text-center text-[27px] font-light leading-tight text-ink">
-            Vos rendez-vous <span className="font-medium text-kwiik">KWIIK</span>
-          </p>
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
-            <SparkleIcon className="h-5 w-5 flex-none text-kwiik" />
-            <p className="m-0 min-w-0 flex-1 text-sm text-muted">Suivez vos demandes, confirmations et prestations terminées.</p>
-          </div>
-        </div>
+    <section className="min-h-full bg-surface-0 text-left text-ink">
+      <header className="flex items-center justify-between gap-4 px-5 pt-7">
+        <h1 className="m-0 text-2xl font-black tracking-tight text-ink">Réservations</h1>
+        <button
+          aria-label="Notifications"
+          className="relative flex h-10 w-10 flex-none items-center justify-center rounded-full bg-surface-1 text-ink transition hover:bg-surface-2 active:scale-[0.98]"
+          onClick={onOuvrirNotifications}
+          type="button"
+        >
+          <BellIcon className="h-5 w-5" />
+          {notificationsNonLues > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-strong px-1 text-[9px] font-bold text-white">
+              {notificationsNonLues > 9 ? '9+' : notificationsNonLues}
+            </span>
+          )}
+        </button>
       </header>
 
-      <div className="px-5 py-5">
-        <h1 className="m-0 text-[28px] font-semibold tracking-normal text-ink">Mes rendez-vous</h1>
-        <p className="m-0 mt-1 text-sm leading-6 text-muted">Retrouvez vos réservations à venir et votre historique.</p>
-
-        <div className="mt-5 grid grid-cols-2 border-b border-line">
+      <div className="px-5 pb-5 pt-5">
+        <div className="grid grid-cols-2 border-b border-line">
           <button
             className={`flex items-center justify-center gap-2 px-2 pb-3 text-sm font-semibold ${
               vueActive === 'a_venir' ? 'border-b-2 border-kwiik text-kwiik' : 'text-muted'
@@ -410,7 +400,7 @@ export function MesReservations() {
           </button>
         </div>
 
-        {chargement && <p className="m-0 mt-5 text-sm text-muted">Chargement des réservations...</p>}
+        {chargement && <SquelettesCartes />}
         {erreur && <p className="m-0 mt-5 rounded-2xl bg-danger-soft p-4 text-sm font-semibold text-danger-strong">{erreur}</p>}
 
         {!chargement && reservations.length === 0 && !erreur && (
@@ -446,27 +436,27 @@ export function MesReservations() {
                           {reservation.prestation.photoUrl ? (
                             <img
                               alt={reservation.prestation.titre}
-                              className="h-[58px] w-[58px] flex-none rounded-2xl object-cover"
-                              src={urlImageBackend(reservation.prestation.photoUrl)}
+                              className="h-14 w-14 flex-none rounded-full object-cover"
+                              src={urlImage(reservation.prestation.photoUrl)}
                             />
                           ) : (
-                            <div className="flex h-[58px] w-[58px] flex-none items-center justify-center rounded-2xl bg-kwiik-light text-kwiik">
-                              <SparkleIcon className="h-7 w-7" />
+                            <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-kwiik-light text-kwiik">
+                              <SparkleIcon className="h-6 w-6" />
                             </div>
                           )}
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
-                                <h3 className="m-0 text-[17px] font-semibold leading-6 text-ink">{reservation.prestation.titre}</h3>
-                                <p className="m-0 mt-1 flex items-start gap-1.5 text-sm leading-5 text-muted">
-                                  <LocationIcon className="mt-0.5 h-4 w-4 flex-none" />
+                                <h3 className="m-0 text-[15px] font-bold leading-5 text-ink">{reservation.prestation.titre}</h3>
+                                <p className="m-0 mt-1 flex items-start gap-1.5 text-xs leading-5 text-muted">
+                                  <LocationIcon className="mt-0.5 h-3.5 w-3.5 flex-none" />
                                   <span>{libellerLieu(reservation)}</span>
                                 </p>
                               </div>
                               <div className="flex-none text-right">
-                                <p className="m-0 text-[17px] font-semibold text-ink">{formatPrixFcfa(reservation.prestation.prix)}</p>
-                                <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statut.classe}`}>
+                                <p className="m-0 text-[15px] font-black text-kwiik">{formatPrixFcfa(reservation.prestation.prix)}</p>
+                                <span className={`mt-2 inline-flex rounded-md px-2 py-1 text-[11px] font-medium ${statut.classe}`}>
                                   {statut.libelle}
                                 </span>
                               </div>
@@ -497,7 +487,7 @@ export function MesReservations() {
                             <div className="mt-5 grid gap-2">
                               {peutValider && (
                                 <button
-                                  className="h-12 rounded-2xl bg-ink px-4 text-sm font-semibold text-white disabled:bg-[#9A988F]"
+                                  className="h-11 rounded-full bg-kwiik px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:bg-[#9A988F]"
                                   disabled={actionDesactivee}
                                   onClick={() => agirSurReservation(reservation.id, 'valider')}
                                   type="button"
@@ -508,7 +498,7 @@ export function MesReservations() {
 
                               {peutAnnuler && (
                                 <button
-                                  className="h-12 rounded-2xl border border-line bg-white px-4 text-sm font-semibold text-muted disabled:text-[#9A988F]"
+                                  className="h-11 rounded-full border border-line bg-white px-4 text-sm font-bold text-muted transition active:scale-[0.98] disabled:text-[#9A988F]"
                                   disabled={actionDesactivee}
                                   onClick={() => agirSurReservation(reservation.id, 'annuler')}
                                   type="button"

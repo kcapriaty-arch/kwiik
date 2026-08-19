@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { api } from './api';
-import { Badge, Carte, EtatVide, type BadgeVariant } from './ui';
+import { Badge, Carte, EtatVide, SquelettesCartes, type BadgeVariant } from './ui';
 
 type StatutCreneau = 'libre' | 'reserve' | 'indisponible';
 
@@ -168,7 +168,7 @@ export function MesCreneaux() {
         </button>
       </form>
 
-      {chargement && <p className="m-0 text-sm text-muted">Chargement des créneaux...</p>}
+      {chargement && <SquelettesCartes />}
       {erreur && <p className="m-0 rounded-xl bg-danger-soft p-3 text-sm font-semibold text-danger-strong">{erreur}</p>}
       {messageSucces && <p className="m-0 rounded-xl bg-success-soft p-3 text-sm font-semibold text-success-strong">{messageSucces}</p>}
 

@@ -1,16 +1,24 @@
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { UtilisateurCourant } from '../auth/utilisateur-courant.decorator';
+import { UploadService } from './upload.service';
 
 const dossierUploads = join(process.cwd(), 'uploads');
 const dossierUploadsPrives = join(process.cwd(), 'uploads-prives');
@@ -41,6 +49,8 @@ function filtrerImage(_request: unknown, file: Express.Multer.File, callback: (e
 
 @Controller('upload')
 export class UploadController {
+  constructor(private uploadService: UploadService) {}
+
   @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(
@@ -79,5 +89,30 @@ export class UploadController {
     }
 
     return { url: `/uploads-prives/${fichier.filename}` };
+  }
+
+  // Les fichiers prives ne sont pas servis en statique : on verifie que le
+  // demandeur est bien le proprietaire avant de renvoyer le fichier.
+  @UseGuards(JwtAuthGuard)
+  @Get('prive/:filename')
+  async voirPrive(
+    @Param('filename') filename: string,
+    @UtilisateurCourant() utilisateur: { id: string },
+    @Res() res: Response,
+  ) {
+    const url = `/uploads-prives/${filename}`;
+    const autorise = await this.uploadService.estProprietaire(utilisateur.id, url);
+
+    if (!autorise) {
+      throw new ForbiddenException();
+    }
+
+    const chemin = join(dossierUploadsPrives, filename);
+
+    if (!existsSync(chemin)) {
+      throw new NotFoundException('Fichier introuvable.');
+    }
+
+    res.sendFile(chemin);
   }
 }

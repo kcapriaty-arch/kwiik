@@ -34,6 +34,11 @@ export class CreneauxService {
       throw new BadRequestException('La fin doit être après le début.');
     }
 
+    // Contrôle 1bis : impossible de créer un créneau déjà passé
+    if (debut < new Date()) {
+      throw new BadRequestException('Impossible de créer un créneau dans le passé.');
+    }
+
     // Contrôle 2 : aucun chevauchement avec un créneau existant du prestataire
     // Deux intervalles [a,b] et [c,d] se chevauchent si a < d ET c < b
     const chevauchement = await this.prisma.creneau.findFirst({

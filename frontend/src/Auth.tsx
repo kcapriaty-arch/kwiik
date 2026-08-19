@@ -7,9 +7,11 @@ export type IntentionConnexion = 'client' | 'prestataire';
 export interface ResultatConnexion {
   intention: IntentionConnexion;
   estPrestataire: boolean;
+  nouveau: boolean;
 }
 
 interface AuthProps {
+  intention: IntentionConnexion;
   onConnecte: (resultat: ResultatConnexion) => void | Promise<void>;
 }
 
@@ -17,12 +19,19 @@ interface SessionAuth {
   estPrestataire: boolean;
 }
 
+interface ReponseAuth {
+  token: string;
+  nouveau: boolean;
+}
+
 interface ApiErreur {
   message?: string | string[];
 }
 
+type ModeFormulaire = 'connexion' | 'inscription';
+
 interface IconeProps {
-  nom: 'phone' | 'shield' | 'briefcase' | 'calendar' | 'spark' | 'arrow' | 'check';
+  nom: 'mail' | 'lock' | 'user' | 'apple' | 'briefcase' | 'calendar' | 'spark' | 'arrow' | 'check';
   className?: string;
 }
 
@@ -54,20 +63,37 @@ function Icone({ nom, className = '' }: IconeProps) {
     viewBox: '0 0 24 24',
   };
 
-  if (nom === 'phone') {
+  if (nom === 'mail') {
     return (
       <svg {...props}>
-        <rect height="18" rx="3" width="12" x="6" y="3" />
-        <path d="M10 18h4" />
+        <rect height="16" rx="2" width="20" x="2" y="4" />
+        <path d="m2 6 10 7 10-7" />
       </svg>
     );
   }
 
-  if (nom === 'shield') {
+  if (nom === 'lock') {
     return (
       <svg {...props}>
-        <path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" />
-        <path d="m9 12 2 2 4-5" />
+        <rect height="11" rx="2" width="16" x="4" y="11" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </svg>
+    );
+  }
+
+  if (nom === 'user') {
+    return (
+      <svg {...props}>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+      </svg>
+    );
+  }
+
+  if (nom === 'apple') {
+    return (
+      <svg {...props} fill="currentColor" stroke="none" viewBox="0 0 24 24">
+        <path d="M16.365 1.43c0 1.14-.44 2.06-1.05 2.78-.65.78-1.72 1.4-2.68 1.33-.12-1.1.44-2.2 1.05-2.9.65-.77 1.79-1.35 2.68-1.21ZM20.6 17.24c-.5 1.15-.74 1.66-1.38 2.68-.9 1.44-2.16 3.23-3.73 3.24-1.4.02-1.76-.9-3.66-.89-1.9.01-2.3.9-3.7.88-1.57-.02-2.76-1.63-3.66-3.07-2.51-4-2.77-8.7-1.22-11.2 1.1-1.78 2.85-2.82 4.5-2.82 1.68 0 2.73 1 4.12 1 1.34 0 2.16-1 4.12-1 1.48 0 3.05.8 4.16 2.2-3.66 2-3.07 7.2.45 9Z" />
       </svg>
     );
   }
@@ -124,38 +150,53 @@ function Icone({ nom, className = '' }: IconeProps) {
   );
 }
 
-export function Auth({ onConnecte }: AuthProps) {
-  const [etape, setEtape] = useState<'telephone' | 'code'>('telephone');
-  const [intention, setIntention] = useState<IntentionConnexion>('client');
-  const [telephone, setTelephone] = useState<string>('');
-  const [code, setCode] = useState<string>('');
-  const [codeDev, setCodeDev] = useState<string | null>(null);
+export function Auth({ intention, onConnecte }: AuthProps) {
+  const [mode, setMode] = useState<ModeFormulaire>('inscription');
+  const [nom, setNom] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [motDePasse, setMotDePasse] = useState<string>('');
+  const [confirmationMotDePasse, setConfirmationMotDePasse] = useState<string>('');
+  const [appleOuvert, setAppleOuvert] = useState<boolean>(false);
+  const [appleNom, setAppleNom] = useState<string>('');
+  const [appleEmail, setAppleEmail] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [chargement, setChargement] = useState<boolean>(false);
 
-  const telephoneNettoye = telephone.replace(/\D/g, '').slice(0, 12);
-  const codeNettoye = code.replace(/\D/g, '').slice(0, 6);
-  const peutDemanderCode = telephoneNettoye.length >= 8;
-  const peutVerifierCode = codeNettoye.length === 6;
+  const emailValide = /\S+@\S+\.\S+/.test(email.trim());
+  const peutSoumettre =
+    mode === 'connexion'
+      ? emailValide && motDePasse.length > 0
+      : nom.trim().length >= 2 && emailValide && motDePasse.length >= 8 && motDePasse === confirmationMotDePasse;
+
+  const appleEmailValide = /\S+@\S+\.\S+/.test(appleEmail.trim());
+  const peutContinuerApple = appleNom.trim().length >= 2 && appleEmailValide;
 
   const contenuProfil = useMemo(() => {
     if (intention === 'prestataire') {
       return {
         titre: 'Developpez votre activite sur KWIIK',
         sousTitre: 'Creez votre vitrine, publiez vos services et recevez des demandes en ligne.',
-        libelleAction: 'Continuer comme prestataire',
       };
     }
 
     return {
       titre: 'Trouvez un service fiable pres de chez vous',
       sousTitre: 'Reservez rapidement un pro verifie pour vos besoins du quotidien.',
-      libelleAction: 'Continuer comme client',
     };
   }, [intention]);
 
-  async function demanderCode(): Promise<void> {
-    if (!peutDemanderCode) {
+  async function apresConnexion(data: ReponseAuth): Promise<void> {
+    localStorage.setItem('kwiik_token', data.token);
+    const session = await api.get<SessionAuth>('/auth/moi');
+    await onConnecte({
+      intention,
+      estPrestataire: Boolean(session.data.estPrestataire),
+      nouveau: data.nouveau,
+    });
+  }
+
+  async function soumettre(): Promise<void> {
+    if (!peutSoumettre) {
       return;
     }
 
@@ -163,21 +204,29 @@ export function Auth({ onConnecte }: AuthProps) {
     setChargement(true);
 
     try {
-      const { data } = await api.post<{ codeDev?: string }>('/auth/demande-code', {
-        telephone: telephoneNettoye,
-      });
-      setCodeDev(data.codeDev ?? null);
-      setCode('');
-      setEtape('code');
+      if (mode === 'inscription') {
+        const { data } = await api.post<ReponseAuth>('/auth/inscription', {
+          nom: nom.trim(),
+          email: email.trim(),
+          motDePasse,
+        });
+        await apresConnexion(data);
+      } else {
+        const { data } = await api.post<ReponseAuth>('/auth/connexion', {
+          email: email.trim(),
+          motDePasse,
+        });
+        await apresConnexion(data);
+      }
     } catch (error: unknown) {
-      setMessage(extraireMessageErreur(error, "Erreur lors de l'envoi du code."));
+      setMessage(extraireMessageErreur(error, 'Une erreur est survenue.'));
     } finally {
       setChargement(false);
     }
   }
 
-  async function verifierCode(): Promise<void> {
-    if (!peutVerifierCode) {
+  async function continuerAvecApple(): Promise<void> {
+    if (!peutContinuerApple) {
       return;
     }
 
@@ -185,25 +234,20 @@ export function Auth({ onConnecte }: AuthProps) {
     setChargement(true);
 
     try {
-      const { data } = await api.post<{ token: string }>('/auth/verifie-code', {
-        telephone: telephoneNettoye,
-        code: codeNettoye,
+      const { data } = await api.post<ReponseAuth>('/auth/apple-simule', {
+        nom: appleNom.trim(),
+        email: appleEmail.trim(),
       });
-      localStorage.setItem('kwiik_token', data.token);
-      const session = await api.get<SessionAuth>('/auth/moi');
-      await onConnecte({
-        intention,
-        estPrestataire: Boolean(session.data.estPrestataire),
-      });
+      await apresConnexion(data);
     } catch (error: unknown) {
-      setMessage(extraireMessageErreur(error, 'Code incorrect.'));
+      setMessage(extraireMessageErreur(error, 'Une erreur est survenue.'));
     } finally {
       setChargement(false);
     }
   }
 
   return (
-    <section className="flex min-h-full flex-col bg-surface-2 text-left">
+    <section className="flex flex-1 flex-col bg-surface-2 text-left">
       <div className="relative overflow-hidden bg-kwiik px-5 pb-24 pt-8 text-white">
         <div className="absolute inset-x-0 bottom-0 h-14 rounded-t-[44px] bg-surface-2" />
         <div className="relative z-10 flex items-center justify-between">
@@ -221,27 +265,6 @@ export function Auth({ onConnecte }: AuthProps) {
             <Icone className="h-8 w-8 text-white" nom={intention === 'prestataire' ? 'briefcase' : 'calendar'} />
           </div>
         </div>
-
-        <div className="relative z-10 mt-8 grid grid-cols-2 gap-2 rounded-[22px] bg-white/12 p-1 ring-1 ring-white/15">
-          <button
-            className={`rounded-[18px] px-3 py-3 text-sm font-black transition ${
-              intention === 'client' ? 'bg-white text-kwiik shadow-sm' : 'text-white/75'
-            }`}
-            onClick={() => setIntention('client')}
-            type="button"
-          >
-            Client
-          </button>
-          <button
-            className={`rounded-[18px] px-3 py-3 text-sm font-black transition ${
-              intention === 'prestataire' ? 'bg-white text-kwiik shadow-sm' : 'text-white/75'
-            }`}
-            onClick={() => setIntention('prestataire')}
-            type="button"
-          >
-            Prestataire
-          </button>
-        </div>
       </div>
 
       <div className="relative -mt-20 flex-1 px-5 pb-6">
@@ -255,96 +278,199 @@ export function Auth({ onConnecte }: AuthProps) {
             ))}
           </div>
 
-          {etape === 'telephone' ? (
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-[16px] bg-surface-1 p-1">
+            <button
+              className={`h-10 rounded-[12px] text-sm font-bold transition ${mode === 'inscription' ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}
+              onClick={() => {
+                setMode('inscription');
+                setMessage('');
+              }}
+              type="button"
+            >
+              Creer un compte
+            </button>
+            <button
+              className={`h-10 rounded-[12px] text-sm font-bold transition ${mode === 'connexion' ? 'bg-white text-ink shadow-sm' : 'text-muted'}`}
+              onClick={() => {
+                setMode('connexion');
+                setMessage('');
+              }}
+              type="button"
+            >
+              Se connecter
+            </button>
+          </div>
+
+          {!appleOuvert ? (
             <div>
-              <div className="mb-4">
-                <p className="m-0 text-lg font-black text-ink">Connexion rapide</p>
-                <p className="m-0 mt-1 text-sm leading-5 text-muted">
-                  Un code de verification sera envoye sur votre telephone.
-                </p>
+              {mode === 'inscription' && (
+                <div className="mb-3">
+                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="nom">
+                    Nom et prenom
+                  </label>
+                  <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                    <Icone className="h-5 w-5 flex-none text-kwiik" nom="user" />
+                    <input
+                      className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                      id="nom"
+                      onChange={(event) => setNom(event.target.value)}
+                      placeholder="Votre nom et prenom"
+                      value={nom}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-3">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="email">
+                  Email
+                </label>
+                <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                  <Icone className="h-5 w-5 flex-none text-kwiik" nom="mail" />
+                  <input
+                    className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                    id="email"
+                    inputMode="email"
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="vous@exemple.com"
+                    type="email"
+                    value={email}
+                  />
+                </div>
               </div>
 
-              <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="telephone">
-                Numero de telephone
-              </label>
-              <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
-                <Icone className="h-5 w-5 flex-none text-kwiik" nom="phone" />
-                <span className="text-sm font-black text-ink">+237</span>
-                <input
-                  className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
-                  id="telephone"
-                  inputMode="tel"
-                  onChange={(event) => setTelephone(event.target.value.replace(/\D/g, '').slice(0, 12))}
-                  placeholder="690000000"
-                  value={telephoneNettoye}
-                />
+              <div className="mb-3">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="motDePasse">
+                  Mot de passe
+                </label>
+                <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                  <Icone className="h-5 w-5 flex-none text-kwiik" nom="lock" />
+                  <input
+                    className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                    id="motDePasse"
+                    onChange={(event) => setMotDePasse(event.target.value)}
+                    placeholder={mode === 'inscription' ? 'Au moins 8 caracteres' : 'Votre mot de passe'}
+                    type="password"
+                    value={motDePasse}
+                  />
+                </div>
               </div>
+
+              {mode === 'inscription' && (
+                <div className="mb-1">
+                  <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="confirmation">
+                    Confirmer le mot de passe
+                  </label>
+                  <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                    <Icone className="h-5 w-5 flex-none text-kwiik" nom="lock" />
+                    <input
+                      className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                      id="confirmation"
+                      onChange={(event) => setConfirmationMotDePasse(event.target.value)}
+                      placeholder="Retapez le mot de passe"
+                      type="password"
+                      value={confirmationMotDePasse}
+                    />
+                  </div>
+                  {confirmationMotDePasse.length > 0 && motDePasse !== confirmationMotDePasse && (
+                    <p className="m-0 mt-1.5 text-xs font-semibold text-danger-strong">Les mots de passe ne correspondent pas.</p>
+                  )}
+                </div>
+              )}
 
               <button
                 className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-ink px-4 text-sm font-black text-white shadow-[0_12px_25px_rgba(26,26,24,0.18)] transition active:scale-[0.99] disabled:bg-[#B8B4AA] disabled:shadow-none"
-                disabled={chargement || !peutDemanderCode}
-                onClick={() => void demanderCode()}
+                disabled={chargement || !peutSoumettre}
+                onClick={() => void soumettre()}
                 type="button"
               >
-                {chargement ? 'Envoi en cours...' : contenuProfil.libelleAction}
+                {chargement ? 'Un instant...' : mode === 'inscription' ? 'Creer mon compte' : 'Se connecter'}
                 <Icone className="h-4 w-4" nom="arrow" />
               </button>
+
+              <div className="my-4 flex items-center gap-3">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-xs font-bold text-muted">ou</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+
+              <button
+                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] border border-line bg-white px-4 text-sm font-black text-ink transition active:scale-[0.99]"
+                onClick={() => setAppleOuvert(true)}
+                type="button"
+              >
+                <Icone className="h-5 w-5" nom="apple" />
+                Continuer avec Apple
+              </button>
+              <p className="m-0 mt-2 text-center text-[11px] leading-4 text-muted">
+                Connexion Apple simulee pour l'instant (pas de compte Apple reel requis).
+              </p>
             </div>
           ) : (
             <div>
               <div className="mb-4 flex items-start gap-3">
                 <div className="flex h-11 w-11 flex-none items-center justify-center rounded-[18px] bg-kwiik-light text-kwiik-dark">
-                  <Icone className="h-5 w-5" nom="shield" />
+                  <Icone className="h-5 w-5" nom="apple" />
                 </div>
                 <div>
-                  <p className="m-0 text-lg font-black text-ink">Verifier le code</p>
-                  <p className="m-0 mt-1 text-sm leading-5 text-muted">Code envoye au +237 {telephoneNettoye}</p>
+                  <p className="m-0 text-lg font-black text-ink">Continuer avec Apple</p>
+                  <p className="m-0 mt-1 text-sm leading-5 text-muted">Simulation : indiquez le nom et l'email a utiliser.</p>
                 </div>
               </div>
 
-              {codeDev && (
-                <button
-                  className="mb-3 w-full rounded-[16px] bg-warning-soft px-4 py-3 text-left text-xs font-bold leading-5 text-warning-strong"
-                  onClick={() => setCode(codeDev)}
-                  type="button"
-                >
-                  Mode dev : code {codeDev}. Toucher pour remplir automatiquement.
-                </button>
-              )}
+              <div className="mb-3">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="appleNom">
+                  Nom et prenom
+                </label>
+                <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                  <Icone className="h-5 w-5 flex-none text-kwiik" nom="user" />
+                  <input
+                    className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                    id="appleNom"
+                    onChange={(event) => setAppleNom(event.target.value)}
+                    placeholder="Votre nom et prenom"
+                    value={appleNom}
+                  />
+                </div>
+              </div>
 
-              <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="code">
-                Code de verification
-              </label>
-              <input
-                className="h-14 w-full rounded-[20px] border border-line bg-surface-1 px-4 text-center text-xl font-black tracking-[0.45em] text-ink outline-none focus:border-kwiik focus:bg-white"
-                id="code"
-                inputMode="numeric"
-                maxLength={6}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                value={codeNettoye}
-              />
+              <div className="mb-1">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-muted" htmlFor="appleEmail">
+                  Email
+                </label>
+                <div className="flex items-center gap-3 rounded-[20px] border border-line bg-surface-1 px-4 py-3 focus-within:border-kwiik focus-within:bg-white">
+                  <Icone className="h-5 w-5 flex-none text-kwiik" nom="mail" />
+                  <input
+                    className="min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-ink outline-none placeholder:text-[#A9A59B]"
+                    id="appleEmail"
+                    inputMode="email"
+                    onChange={(event) => setAppleEmail(event.target.value)}
+                    placeholder="vous@icloud.com"
+                    type="email"
+                    value={appleEmail}
+                  />
+                </div>
+              </div>
 
               <button
                 className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-[18px] bg-ink px-4 text-sm font-black text-white shadow-[0_12px_25px_rgba(26,26,24,0.18)] transition active:scale-[0.99] disabled:bg-[#B8B4AA] disabled:shadow-none"
-                disabled={chargement || !peutVerifierCode}
-                onClick={() => void verifierCode()}
+                disabled={chargement || !peutContinuerApple}
+                onClick={() => void continuerAvecApple()}
                 type="button"
               >
-                {chargement ? 'Verification...' : 'Se connecter'}
+                {chargement ? 'Un instant...' : 'Continuer'}
                 <Icone className="h-4 w-4" nom="arrow" />
               </button>
 
               <button
                 className="mt-3 w-full rounded-[16px] px-4 py-3 text-sm font-bold text-muted transition hover:bg-surface-1"
                 onClick={() => {
-                  setEtape('telephone');
-                  setCode('');
+                  setAppleOuvert(false);
                   setMessage('');
                 }}
                 type="button"
               >
-                Changer de numero
+                Retour
               </button>
             </div>
           )}

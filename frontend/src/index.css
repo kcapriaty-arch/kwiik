@@ -1,36 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --color-kwiik: #185FA5;
-  --color-kwiik-dark: #0C447C;
-  --color-kwiik-light: #E6F1FB;
-  --color-coral: #F25F5C;
-  --color-coral-dark: #D94745;
-  --color-coral-soft: #FFE7E2;
-  --color-teal: #3F9D87;
-  --color-teal-dark: #24715F;
-  --color-teal-soft: #E5F5F0;
-  --color-cream: #FFF8EF;
-  --color-soft-map: #EDF6FA;
-  --color-surface-0: #F4EFE8;
-  --color-surface-1: #FBFAF7;
+  /* Accent unique V5 : indigo electrique, calque sur la maquette Figma de reference */
+  --color-kwiik: #2D1FE8;
+  --color-kwiik-dark: #1B12A0;
+  --color-kwiik-light: #E8E6FD;
+
+  /* Alias convergents sur le meme accent unique (un seul accent fort, partage par toutes les zones) */
+  --color-coral: #2D1FE8;
+  --color-coral-dark: #1B12A0;
+  --color-coral-soft: #E8E6FD;
+
+  --color-teal: #2D1FE8;
+  --color-teal-dark: #1B12A0;
+  --color-teal-soft: #E8E6FD;
+
+  /* Accent secondaire lime : reserve aux badges/mises en avant ponctuelles (Dispo, Compte verifie, promo) */
+  --color-lime: #C8FF47;
+  --color-lime-dark: #0D0D12;
+
+  --color-cream: #F5F4F1;
+  --color-soft-map: #EEECE7;
+  --color-surface-0: #F5F4F1;
+  --color-surface-1: #EEECE7;
   --color-surface-2: #FFFFFF;
-  --color-ink: #1A1A18;
-  --color-muted: #5F5E5A;
-  --color-line: #E7E0D6;
-  --color-success-soft: #E1F5EE;
-  --color-success-strong: #0F6E56;
-  --color-warning-soft: #FAEEDA;
-  --color-warning-strong: #854F0B;
-  --color-danger-soft: #FCEBEB;
-  --color-danger-strong: #A32D2D;
-  --color-amber-star: #BA7517;
+  --color-ink: #0D0D12;
+  --color-muted: #6E6D6A;
+  --color-line: #E7E4DF;
+  --color-success-soft: #E9F3EA;
+  --color-success-strong: #2F7D3C;
+  --color-warning-soft: #FBF1DC;
+  --color-warning-strong: #93650A;
+  --color-danger-soft: #FCEBE8;
+  --color-danger-strong: #B23B2A;
+  /* #F5A623 (essai initial) ne passait pas le contraste WCAG AA sur blanc (2.03:1) ; #976600 passe a 4.98:1 */
+  --color-amber-star: #976600;
+
+  --font-display: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  color: #1A1A18;
-  background: #F4EFE8;
+  font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #0D0D12;
+  background: #F5F4F1;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,10 +62,7 @@ body,
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at top left, rgba(242, 95, 92, 0.10), transparent 32rem),
-    radial-gradient(circle at bottom right, rgba(63, 157, 135, 0.10), transparent 26rem),
-    #F4EFE8;
+  background: #F5F4F1;
 }
 
 button,
@@ -70,3 +79,12 @@ button {
 img {
   max-width: 100%;
 }
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+

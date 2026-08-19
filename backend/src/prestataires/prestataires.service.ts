@@ -41,7 +41,7 @@ export class PrestatairesService {
     }
 
     const decouverte = await this.prisma.abonnement.findUnique({
-      where: { nom: 'Decouverte' },
+      where: { nom: 'Découverte' },
     });
 
     return this.prisma.prestataire.create({
@@ -56,6 +56,10 @@ export class PrestatairesService {
         description: dto.description,
         photoLieuUrl: dto.photoLieuUrl,
         photosBoutique: dto.photosBoutique ?? [],
+        modeService: dto.modeService,
+        licenceUrl: dto.licenceUrl,
+        proposeLocalAVendreOuLouer: dto.proposeLocalAVendreOuLouer ?? false,
+        factureElectriciteUrl: dto.factureElectriciteUrl,
         abonnementId: decouverte?.id,
       },
       include: {
@@ -96,6 +100,9 @@ export class PrestatairesService {
     const donneesPrivees = this.donneesProfilPrive(dto);
     const data: any = {};
 
+    if (dto.categorieIds !== undefined) {
+      data.categories = { set: dto.categorieIds.map((id: string) => ({ id })) };
+    }
     if (dto.ville !== undefined) {
       data.ville = dto.ville;
     }
@@ -113,6 +120,18 @@ export class PrestatairesService {
     }
     if (dto.photosBoutique !== undefined) {
       data.photosBoutique = dto.photosBoutique;
+    }
+    if (dto.modeService !== undefined) {
+      data.modeService = dto.modeService;
+    }
+    if (dto.licenceUrl !== undefined) {
+      data.licenceUrl = dto.licenceUrl;
+    }
+    if (dto.proposeLocalAVendreOuLouer !== undefined) {
+      data.proposeLocalAVendreOuLouer = dto.proposeLocalAVendreOuLouer;
+    }
+    if (dto.factureElectriciteUrl !== undefined) {
+      data.factureElectriciteUrl = dto.factureElectriciteUrl;
     }
 
     if (Object.keys(donneesPrivees).length > 0) {
@@ -223,5 +242,17 @@ export class PrestatairesService {
       throw new NotFoundException('Prestataire introuvable.');
     }
     return prestataire;
+  }
+
+  async verifier(id: string) {
+    const prestataire = await this.prisma.prestataire.findUnique({ where: { id } });
+    if (!prestataire) {
+      throw new NotFoundException('Prestataire introuvable.');
+    }
+
+    return this.prisma.prestataire.update({
+      where: { id },
+      data: { verifie: true },
+    });
   }
 }

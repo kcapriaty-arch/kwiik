@@ -1,0 +1,26 @@
+Test clavier reel sur la modale de reservation (SheetReservation)
+====================================================================
+Outil    : Playwright (Chromium/Edge headless), pilotage reel du DOM
+Ecran    : Vitrine prestataire -> modale "Reserver" (role="dialog", aria-modal="true")
+Date     : 2026-09-14
+
+Sequence executee :
+  1. Ouverture de la modale (clic sur "Reserver") -> dialog visible : true
+  2. Tab, Tab (navigation clavier dans la modale)
+  3. Touche Echap (Escape)
+  4. Verification : dialog visible apres Echap -> true
+
+RESULTAT : la modale ne se ferme PAS avec la touche Echap.
+Confirmation du point souleve en Phase 1 de l'audit (aucun handler
+"Escape" trouve dans SheetReservation.tsx) : ce n'est plus une simple
+hypothese de lecture de code, c'est un comportement reproduit reellement.
+
+Fermeture testee et fonctionnelle : clic sur le bouton croix
+(aria-label="Fermer", frontend/src/SheetReservation.tsx:173) -> la
+modale se ferme correctement.
+
+Recommandation pour le dossier RNCP : ne pas affirmer "navigation
+clavier complete sans piege" sans reserve. Formulation correcte :
+"la modale est activable et se ferme au clavier via le bouton Fermer
+(focusable, aria-label explicite), mais ne repond pas encore a la
+touche Echap - amelioration identifiee, non corrigee a ce jour."

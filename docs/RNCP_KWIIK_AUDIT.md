@@ -26,7 +26,7 @@ Le projet est globalement solide et cohérent avec le dossier RNCP. Les écarts 
 | Accessibilité | Contraste étoile 2,03:1 → 4,98:1 | VERIFIED | `index.css:36-37` | `contraste-wcag.js` | 05-accessibilite | Aucune |
 | Accessibilité | ~24 aria-label / ~8 fichiers | PARTIAL | grep réel : 27/9 | — | 05-accessibilite | Corriger les chiffres |
 | Accessibilité | Cartes = vrais `<button>` (généralisé) | PARTIAL | vrai sur Découverte seulement | — | — | Préciser le périmètre |
-| Accessibilité | Pas de piège clavier sur les modales | PARTIAL | pas de handler Echap trouvé | — | — | Vérifier/corriger avant de l'affirmer sans réserve |
+| Accessibilité | Pas de piège clavier sur les modales | **PARTIAL confirmé par test réel** | pas de handler Echap trouvé | test clavier Playwright réel (2026-09-14) : Echap ne ferme pas la modale | `05-accessibilite/resultat-test-clavier.txt` | Ne pas affirmer "sans piège clavier" sans réserve ; fermeture fonctionne au clic (bouton croix) mais pas au clavier Echap |
 | Risques | R1-R8, criticité = P×I | VERIFIED | `GESTION_DES_RISQUES.md`, recalcul manuel | — | 06-gestion-risques | Aucune |
 | Tests | CT-01 à CT-10 "réellement exécutés via Playwright" | NOT FOUND | aucun fichier Playwright dans le dépôt | — | 07-plan-de-tests | Reformuler : "vérifiés manuellement / via API directe" |
 | Tests | CT-01 (concurrence) | VERIFIED | mécanisme + trigger DB | test réel exécuté | 02-concurrence-reservation | — |
@@ -76,6 +76,11 @@ Le projet est globalement solide et cohérent avec le dossier RNCP. Les écarts 
 - **Commande** : `cd frontend && npm run build`
 - **Résultat** : succès (`✓ built in 571ms`, `dist/assets/index-*.js` généré)
 
+### 8. Captures d'écran réelles de l'application (2026-09-14)
+- **Environnement** : backend + frontend + Postgres de test seedé, lancés localement ; navigation pilotée par Playwright/Chromium (Edge en tant que binaire, téléchargement du Chromium officiel bloqué par le réseau du sandbox)
+- **Résultat** : 8 captures produites (voir `docs/captures/rncp/05-accessibilite/`, `08-bug-session-ct05/`, `09-moteur-documents-ct06/`), données 100% fictives
+- **Finding supplémentaire découvert pendant ce test** : la modale de réservation ne se ferme pas avec la touche **Echap** (testé réellement : Tab, Tab, Echap → dialog toujours visible). La fermeture au clic sur le bouton croix fonctionne. Ce point était suspecté en Phase 1 (absence de handler dans le code) et est maintenant **confirmé par exécution réelle**.
+
 ## D. Éléments créés (Phase 2)
 
 - `docs/captures/rncp/` — structure de 10 dossiers de preuves + `README.md` index
@@ -85,6 +90,8 @@ Le projet est globalement solide et cohérent avec le dossier RNCP. Les écarts 
 - `docs/captures/rncp/04-securite-hash/reponses-api-sans-hash.json` — captures API anonymisées
 - `docs/erd.mmd`, `docs/erd.svg`, `docs/erd.png` — diagramme entité-relation généré depuis le schéma réel
 - `backend/scripts/ct01-concurrence-reservation.ts` — script de test de concurrence reproductible (nouveau)
+- `backend/scripts/fixture-avis-demo.ts` — script ponctuel créant un avis de démonstration (donnée fictive) pour que l'étoile de notation soit visible lors des captures d'écran (nouveau)
+- `docs/captures/rncp/05-accessibilite/`, `08-bug-session-ct05/`, `09-moteur-documents-ct06/` — 8 captures d'écran réelles de l'application (nouveau, voir section C.8)
 - `backend/src/auth/auth.service.hash.spec.ts` — test unitaire (nouveau)
 - `backend/src/utilisateurs.service.hash.spec.ts` — test unitaire (nouveau)
 - `backend/package.json` — ajout d'un `moduleNameMapper` Jest (correction de configuration nécessaire pour que `ts-jest` résolve les imports `.js` du client Prisma 7 en mode `nodenext` ; sans cela, aucun test ne pouvait s'exécuter)
@@ -181,6 +188,16 @@ Aucune logique métier existante n'a été modifiée.
 **Zone exacte à capturer** : la ligne "Etoile notation" avant/après dans le terminal
 **Informations à masquer** : aucune
 **Légende recommandée** : "Contraste recalculé indépendamment : conforme WCAG AA après correction"
+
+### PREUVE P07
+**Compétence** : Accessibilité / moteur métier dynamique
+**Titre** : Parcours d'onboarding CT-06 réellement rejoué
+**Ce qu'elle démontre** : la règle "Esthétique + local à vendre/louer → CNI + Licence + Facture" fonctionne réellement à l'écran, pas seulement dans le code
+**Écran/fichier à ouvrir** : `docs/captures/rncp/09-moteur-documents-ct06/02-mode-service-local-vendre-louer.png` et `04-etape-licence.png`
+**Commande éventuelle** : aucune (captures déjà produites)
+**Zone exacte à capturer** : la case cochée "Je propose aussi un local à vendre ou à louer" + la barre de progression 4/6 sur l'étape Licence
+**Informations à masquer** : aucune (compte de démonstration fictif)
+**Légende recommandée** : "Parcours d'onboarding rejoué réellement : les 3 documents (CNI, Licence, Facture) sont bien demandés selon la catégorie et l'option choisies"
 
 ### PREUVE P06 (secondaire)
 **Compétence** : Modification d'un algorithme existant sans régression

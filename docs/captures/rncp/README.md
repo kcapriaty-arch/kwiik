@@ -31,6 +31,23 @@ Voir aussi le rapport complet : [`docs/RNCP_KWIIK_AUDIT.md`](../../RNCP_KWIIK_AU
 | Capture à prendre | Terminal montrant la sortie du script (déjà capturée en texte, une capture d'écran du terminal est optionnelle) |
 | Statut | **VERIFIED** — exécuté réellement le 2026-09-14, reproductible |
 
+## 00 bis — Captures d'écran réelles (produites le 2026-09-14)
+
+L'application a été lancée réellement (backend + frontend + Postgres de test seedé) et pilotée avec Playwright/Chromium pour produire ces captures. Données 100% fictives (`*.local`).
+
+| Fichier | Ce qu'il montre |
+|---|---|
+| `05-accessibilite/01-decouverte-etoile-notation.png` | Écran Découverte avec l'étoile de notation réelle (★ 5,0) sur une carte prestataire |
+| `05-accessibilite/03-zoom-etoile-notation.png` | Gros plan sur l'étoile ambrée (#976600) pour la preuve de contraste |
+| `05-accessibilite/02-modale-reservation.png` | Modale de réservation ouverte (`role="dialog"`, `aria-modal="true"`) |
+| `05-accessibilite/resultat-test-clavier.txt` | **Test clavier réel** : Tab/Tab/Echap exécuté sur la modale — **confirmé : Echap ne ferme pas la modale** (fermeture fonctionnelle uniquement via le bouton croix) |
+| `08-bug-session-ct05/01-parametres-message-succes.png` | Écran Paramètres après enregistrement du téléphone : message "Numero enregistre." affiché sans réinitialisation de l'écran |
+| `09-moteur-documents-ct06/01-choix-categorie-esthetique.png` | Sélection de la catégorie "Esthétique" à l'onboarding |
+| `09-moteur-documents-ct06/02-mode-service-local-vendre-louer.png` | Mode "Adresse fixe" + case "local à vendre ou à louer" cochée |
+| `09-moteur-documents-ct06/03-etape-cni.png` | Étape CNI (toujours requise) |
+| `09-moteur-documents-ct06/04-etape-licence.png` | Étape Licence (requise par la catégorie Esthétique) — barre de progression 4/6 |
+| `09-moteur-documents-ct06/05-etape-facture-electricite.png` | Étape Facture d'électricité (requise par le local à vendre/louer) — barre de progression 5/6 |
+
 ## 03 — Modèle de données et ERD
 
 | | |
@@ -63,8 +80,8 @@ Voir aussi le rapport complet : [`docs/RNCP_KWIIK_AUDIT.md`](../../RNCP_KWIIK_AU
 | Fichier source | `frontend/src/index.css:36-37`, `docs/ACCESSIBILITE.md` |
 | Commande | `node docs/captures/rncp/scripts/contraste-wcag.js` |
 | Résultat attendu | `Etoile notation - AVANT correction  2.03:1  NON CONFORME` / `APRES correction  4.98:1  CONFORME` |
-| Capture à prendre | Sortie terminal du script + capture de l'écran "Vitrine" prestataire montrant l'étoile de notation |
-| Statut | **VERIFIED** pour les contrastes (recalcul indépendant identique). **PARTIAL** pour "~24 aria-label / 8 fichiers" (réel : 27 / 9) |
+| Capture à prendre | Voir `03-zoom-etoile-notation.png` (déjà produite) |
+| Statut | **VERIFIED** pour les contrastes (recalcul indépendant identique) et pour le rendu réel de l'étoile en application. **PARTIAL** pour "~24 aria-label / 8 fichiers" (réel : 27 / 9). **Nouveau finding réel** : la modale de réservation ne se ferme pas avec Echap (voir `resultat-test-clavier.txt`) — à corriger ou à formuler avec réserve dans le dossier |
 
 ## 06 — Registre des risques
 
@@ -96,8 +113,8 @@ Voir aussi le rapport complet : [`docs/RNCP_KWIIK_AUDIT.md`](../../RNCP_KWIIK_AU
 | Fichiers source | `frontend/src/session.tsx` (garde `aDejaCharge`), `frontend/src/App.tsx:516` (rendu conditionnel plein écran) |
 | Commande | `git show 9964c3f -- frontend/src/session.tsx` |
 | Résultat attendu | Diff montrant l'ajout de `aDejaCharge` |
-| Capture à prendre | Le diff Git ci-dessus (avant/après dans le même commit — voir nuance dans l'audit) |
-| Statut | **VERIFIED** pour le mécanisme technique. **PARTIAL** pour la narration "commit buggé puis commit de fix" (même commit unique) |
+| Capture à prendre | Voir `08-bug-session-ct05/01-parametres-message-succes.png` (déjà produite) + le diff Git ci-dessus |
+| Statut | **VERIFIED** pour le mécanisme technique **et pour le comportement réel observé** (message affiché sans réinitialisation de l'écran, testé en conditions réelles). **PARTIAL** pour la narration "commit buggé puis commit de fix" (même commit unique) |
 
 ## 09 — Moteur dynamique de documents (CT-06)
 
@@ -107,8 +124,8 @@ Voir aussi le rapport complet : [`docs/RNCP_KWIIK_AUDIT.md`](../../RNCP_KWIIK_AU
 | Fichiers source | `backend/prisma/seed.ts:85`, `frontend/src/onboarding/EtapeLicence.tsx:72`, `EtapeFactureElectricite.tsx:72`, `backend/src/auth/auth.service.ts:197-204` |
 | Commande | Lecture des fichiers ci-dessus (pas de test automatisé existant) |
 | Résultat attendu | Les 3 conditions (`licenceRequise`, `proposeLocalAVendreOuLouer`) pilotent bien l'affichage des étapes et la vérification serveur |
-| Capture à prendre | L'écran d'onboarding prestataire montrant les 3 étapes de documents demandées pour ce scénario |
-| Statut | **VERIFIED** dans le code (front + back). **NOT FOUND** pour une preuve d'exécution automatisée |
+| Capture à prendre | Voir `01` à `05` dans `09-moteur-documents-ct06/` (déjà produites) |
+| Statut | **VERIFIED** dans le code (front + back) **et à l'exécution réelle** (parcours complet rejoué avec Playwright : catégorie → mode de service → CNI → Licence → Facture d'électricité) |
 
 ## 10 — Gestion de projet / chronologie
 

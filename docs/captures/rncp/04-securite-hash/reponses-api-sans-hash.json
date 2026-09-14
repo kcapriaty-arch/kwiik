@@ -1,0 +1,48 @@
+{
+  "note": "Captures reelles obtenues via curl sur le backend NestJS local (Postgres de test dedie, isole, donnees fictives). Aucune donnee personnelle reelle. IDs et emails anonymises/factices.",
+  "date": "2026-09-14",
+  "POST /auth/inscription": {
+    "utilisateur": {
+      "id": "47de225a-889d-4a4a-b7c8-238af8cc2f78",
+      "nom": "Utilisateur Demo",
+      "email": "demo.capture@example.local",
+      "role": "client",
+      "langue": "fr",
+      "creeLe": "2026-09-14T10:32:56.125Z",
+      "appleId": null,
+      "emailConfirme": false,
+      "telephone": null,
+      "photoProfilUrl": null,
+      "cniRectoUrl": null,
+      "cniVersoUrl": null
+    }
+  },
+  "GET /auth/moi": {
+    "id": "47de225a-889d-4a4a-b7c8-238af8cc2f78",
+    "nom": "Utilisateur Demo",
+    "telephone": null,
+    "email": "demo.capture@example.local",
+    "emailConfirme": false,
+    "creeLe": "2026-09-14T10:32:56.125Z",
+    "photoProfilUrl": null,
+    "cniRectoUrl": null,
+    "cniVersoUrl": null,
+    "estPrestataire": false,
+    "identiteComplete": true,
+    "prestataireOnboardingComplete": true
+  },
+  "GET /utilisateurs/moi": {
+    "id": "47de225a-889d-4a4a-b7c8-238af8cc2f78",
+    "nom": "Utilisateur Demo",
+    "email": "demo.capture@example.local",
+    "role": "client",
+    "langue": "fr",
+    "creeLe": "2026-09-14T10:32:56.125Z",
+    "emailConfirme": false,
+    "telephone": null,
+    "photoProfilUrl": null,
+    "cniRectoUrl": null,
+    "cniVersoUrl": null
+  },
+  "verification": "grep -o 'motDePasse[A-Za-z]*' sur les 3 reponses -> aucune occurrence"
+}

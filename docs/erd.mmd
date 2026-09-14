@@ -1,0 +1,164 @@
+erDiagram
+  Utilisateur {
+    String id "PK"
+    String nom
+    String email "UK"
+    Role role
+    Langue langue
+    DateTime creeLe
+    String motDePasseHash
+    String appleId "UK"
+    Boolean emailConfirme
+    String telephone "UK"
+    String photoProfilUrl
+    String cniRectoUrl
+    String cniVersoUrl
+  }
+  Notification {
+    String id "PK"
+    String utilisateurId
+    TypeNotification type
+    String titre
+    String corps
+    Boolean lu
+    String lienType
+    String lienId
+    DateTime creeLe
+  }
+  Domaine {
+    String id "PK"
+    String nom "UK"
+    Int ordre
+  }
+  Categorie {
+    String id "PK"
+    String nom "UK"
+    String domaineId
+    Boolean licenceRequise
+  }
+  Prestataire {
+    String id "PK"
+    String utilisateurId "UK"
+    String ville
+    String quartier
+    String adresse
+    String description
+    String photoLieuUrl
+    String photosBoutique
+    ModeService modeService
+    String licenceUrl
+    Boolean proposeLocalAVendreOuLouer
+    String factureElectriciteUrl
+    Int rdvGratuitsRestants
+    String lienPartage "UK"
+    Boolean verifie
+    String abonnementId
+    DateTime creeLe
+  }
+  Conversation {
+    String id "PK"
+    String clientId
+    String prestataireId
+    DateTime creeLe
+  }
+  Message {
+    String id "PK"
+    String conversationId
+    String expediteurId
+    String contenu
+    Boolean lu
+    DateTime creeLe
+  }
+  Favori {
+    String id "PK"
+    String utilisateurId
+    String prestataireId
+    DateTime creeLe
+  }
+  ProfilPrestatairePrive {
+    String id "PK"
+    String prestataireId "UK"
+    String telephonePro
+    String email
+    String photoProfilPriveeUrl
+    String cniRectoUrl
+    String cniVersoUrl
+    DateTime creeLe
+    DateTime modifieLe
+  }
+  Prestation {
+    String id "PK"
+    String prestataireId
+    String titre
+    String description
+    String photoUrl
+    Int prix
+    Int dureeMin
+  }
+  Creneau {
+    String id "PK"
+    String prestataireId
+    DateTime debut
+    DateTime fin
+    StatutCreneau statut
+  }
+  Reservation {
+    String id "PK"
+    String clientId
+    String prestationId
+    String creneauId
+    StatutReservation statut
+    ModePaiement modePaiement
+    String note
+    DateTime creeLe
+  }
+  Paiement {
+    String id "PK"
+    String reservationId "UK"
+    Int montant
+    Operateur operateur
+    StatutPaiement statut
+    String referenceExterne
+    DateTime creeLe
+  }
+  Abonnement {
+    String id "PK"
+    String nom "UK"
+    Int prixMois
+    Int prioriteRang
+    Boolean publiciteExterne
+  }
+  Avis {
+    String id "PK"
+    String reservationId "UK"
+    Int note
+    String commentaire
+    DateTime creeLe
+  }
+  CodeConfirmationEmail {
+    String id "PK"
+    String email
+    String codeHache
+    DateTime expireLe
+    Int tentatives
+    Boolean utilise
+    DateTime creeLe
+  }
+  Notification }o--|| Utilisateur : "utilisateur"
+  Categorie }o--|| Domaine : "domaine"
+  Prestataire }o--|| Utilisateur : "utilisateur"
+  Prestataire }o--|| Abonnement : "abonnement"
+  Conversation }o--|| Utilisateur : "client"
+  Conversation }o--|| Prestataire : "prestataire"
+  Message }o--|| Conversation : "conversation"
+  Message }o--|| Utilisateur : "expediteur"
+  Favori }o--|| Utilisateur : "utilisateur"
+  Favori }o--|| Prestataire : "prestataire"
+  ProfilPrestatairePrive }o--|| Prestataire : "prestataire"
+  Prestation }o--|| Prestataire : "prestataire"
+  Creneau }o--|| Prestataire : "prestataire"
+  Reservation }o--|| Utilisateur : "client"
+  Reservation }o--|| Prestation : "prestation"
+  Reservation }o--|| Creneau : "creneau"
+  Paiement }o--|| Reservation : "reservation"
+  Avis }o--|| Reservation : "reservation"

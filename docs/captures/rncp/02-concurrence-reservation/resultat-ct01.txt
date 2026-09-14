@@ -1,0 +1,54 @@
+Preuve CT-01 - Concurrence sur la confirmation de reservation
+================================================================
+Commande  : npx tsx scripts/ct01-concurrence-reservation.ts
+Contexte  : backend NestJS (npm run start:dev) + Postgres 16 dedie (conteneur
+            Docker kwiik-test-db, isole de toute donnee reelle), migrations
+            Prisma appliquees (15 migrations, prisma migrate deploy).
+Date      : 2026-09-14
+Resultat  : CONFORME sur 2 executions independantes.
+
+--- Execution 1 ---
+Reservation de test : a7c6a832-0982-4157-8263-a520506ce957
+Creneau de test     : 9f6febb6-a734-4b6c-a4f0-d266ee3d1373 (statut initial: libre)
+
+  requete #1 -> CONFLIT 409
+  requete #2 -> CONFLIT 409
+  requete #3 -> SUCCES 200
+  requete #4 -> CONFLIT 409
+  requete #5 -> CONFLIT 409
+  requete #6 -> CONFLIT 409
+  requete #7 -> CONFLIT 409
+  requete #8 -> CONFLIT 409
+
+Statut final du creneau       : reserve
+Reservations confirmees       : 1
+Bilan HTTP : 1 succes (200) / 7 conflits (409) / 0 autres
+RESULTAT : CONFORME
+
+--- Execution 2 ---
+Reservation de test : ec8e2d09-964a-4759-8712-195488efabb5
+Creneau de test     : d5d42261-d8ab-40c0-b939-59d292767c8a (statut initial: libre)
+
+  requete #1 -> CONFLIT 409
+  requete #2 -> CONFLIT 409
+  requete #3 -> SUCCES 200
+  requete #4 -> CONFLIT 409
+  requete #5 -> CONFLIT 409
+  requete #6 -> CONFLIT 409
+  requete #7 -> CONFLIT 409
+  requete #8 -> CONFLIT 409
+
+Statut final du creneau       : reserve
+Reservations confirmees       : 1
+Bilan HTTP : 1 succes (200) / 7 conflits (409) / 0 autres
+RESULTAT : CONFORME
+
+Mecanisme reel demontre :
+- backend/src/reservation/reservations.service.ts, methode confirmer() (lignes 144-186) :
+  transaction Prisma interactive + updateMany conditionnel (where statut='libre'/'en_attente'),
+  ConflictException (409) si count === 0.
+- Garde-fou redondant au niveau base de donnees : trigger Postgres
+  trg_empecher_double_reservation_creneau (migration 20260819090000).
+- Aucun test automatise de ce comportement n'existait avant cet audit (voir
+  RNCP_KWIIK_AUDIT.md) : ce script constitue la premiere preuve reproductible
+  et versionnee de la garantie annoncee dans docs/PLAN_DE_TESTS.md (CT-01).
